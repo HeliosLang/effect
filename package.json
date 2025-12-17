@@ -1,0 +1,21 @@
+{
+  "name": "@helios-lang/effect",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "bun test ."
+  },
+  "keywords": [],
+  "author": "Christian Schmitz",
+  "license": "BSD-3-Clause",
+  "packageManager": "pnpm@10.20.0",
+  "devDependencies": {
+    "@types/bun": "^1.3.4",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "effect": "^3.19.12"
+  }
+}
