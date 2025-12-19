@@ -8,12 +8,18 @@ import * as Bytes from "./Bytes.js"
  * @param bytes
  * @returns
  */
-export function decode(bytes: string | number[] | Uint8Array): Effect.Effect<string, Encoding.DecodeException> {
-    return Effect.sync(() => new TextDecoder("utf-8", { fatal: true }).decode(
-        Bytes.makeUint8Array(bytes).buffer
-    )).pipe(
-        Effect.catchAll(() => Effect.fail(Encoding.DecodeException(Encoding.encodeHex(Bytes.makeUint8Array(bytes)), "Invalid utf-8 encoding")))
+export function decode(
+  bytes: string | number[] | Uint8Array
+): Effect.Effect<string, Encoding.DecodeException> {
+  return Effect.sync(() =>
+    new TextDecoder("utf-8", { fatal: true }).decode(
+      Bytes.toUint8Array(bytes).buffer
     )
+  ).pipe(
+    Effect.catchAll(() =>
+      Effect.fail(Bytes.DecodeException(bytes, "Invalid utf-8 encoding"))
+    )
+  )
 }
 
 /**
@@ -24,7 +30,7 @@ export function decode(bytes: string | number[] | Uint8Array): Effect.Effect<str
  * @returns
  */
 export function encode(str: string): Uint8Array {
-    return new TextEncoder().encode(str)
+  return new TextEncoder().encode(str)
 }
 
 /**
@@ -33,22 +39,20 @@ export function encode(str: string): Uint8Array {
  * @returns {boolean}
  */
 export function isValid(bytes: string | number[] | Uint8Array): boolean {
-    /**
-     * Bytes.makeArray() doesn't fail if any of the bytes are out of range
-     */
-    const bs = Bytes.makeArray(bytes)
+  /**
+   * Bytes.toArray() doesn't fail if any of the bytes are out of range
+   */
+  const bs = Bytes.toArray(bytes)
 
-    if (bs.some((b) => b < 0 || b > 255)) {
-        return false
-    }
+  if (bs.some((b) => b < 0 || b > 255)) {
+    return false
+  }
 
-    try {
-        new TextDecoder("utf-8", { fatal: true }).decode(
-            new Uint8Array(bs).buffer
-        )
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bs).buffer)
 
-        return true
-    } catch (e) {
-        return false
-    }
+    return true
+  } catch (_e) {
+    return false
+  }
 }
