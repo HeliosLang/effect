@@ -17,7 +17,7 @@ export class EndOfStreamError extends Data.TaggedError("EndOfStreamError")<{
  * @returns
  */
 export function toArray(
-  bytes: string | number[] | Uint8Array | Stream
+  bytes: string | readonly number[] | Uint8Array | Stream
 ): number[] {
   if (bytes instanceof Uint8Array) {
     return Array.from(bytes)

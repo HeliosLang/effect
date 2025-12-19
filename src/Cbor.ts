@@ -341,7 +341,10 @@ const decodeConstrTag = (bytes: Bytes.BytesLike): DecodeEffect<number> =>
  * @param fields
  * @returns
  */
-export function encodeConstr(tag: number, fields: number[][]): number[] {
+export function encodeConstr(
+  tag: number,
+  fields: readonly number[][]
+): number[] {
   return encodeConstrTag(tag).concat(encodeList(fields))
 }
 
@@ -954,7 +957,7 @@ export const decodeListLazyOption = (
  * @param items already encoded
  * @returns
  */
-export function encodeList(items: number[][]): number[] {
+export function encodeList(items: readonly number[][]): number[] {
   return items.length > 0 ? encodeIndefList(items) : encodeDefList(items)
 }
 
@@ -969,7 +972,7 @@ function encodeIndefListStart(): number[] {
  * @param list
  * @returns
  */
-function encodeListInternal(list: number[][]): number[] {
+function encodeListInternal(list: readonly number[][]): number[] {
   /**
    * @type {number[]}
    */
@@ -988,7 +991,7 @@ const INDEF_LIST_END = [255]
  * @param list Each item is either already serialized.
  * @returns
  */
-export function encodeIndefList(list: number[][]): number[] {
+export function encodeIndefList(list: readonly number[][]): number[] {
   return encodeIndefListStart()
     .concat(encodeListInternal(list))
     .concat(INDEF_LIST_END)
@@ -1008,7 +1011,7 @@ function encodeDefListStart(n: bigint): number[] {
  * @param items Each item is already serialized
  * @returns
  */
-export function encodeDefList(items: number[][]): number[] {
+export function encodeDefList(items: readonly number[][]): number[] {
   return encodeDefListStart(BigInt(items.length)).concat(
     encodeListInternal(items)
   )
