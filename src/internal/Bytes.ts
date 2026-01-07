@@ -30,7 +30,7 @@ export function toArray(
 
     return Array.from(result.right)
   } else if (Array.isArray(bytes)) {
-    return bytes
+    return bytes as number[]
   } else if ("peekRemaining" in bytes) {
     return bytes.peekRemaining()
   } else {

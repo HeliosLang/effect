@@ -12,7 +12,7 @@ export const ByteArray = Schema.Struct({
 
 export type ByteArray = Schema.Schema.Type<typeof ByteArray>
 
-type ByteArrayEncoded = Schema.Schema.Encoded<typeof ByteArray>
+export type ByteArrayEncoded = Schema.Schema.Encoded<typeof ByteArray>
 
 export function makeByteArray(
   bytes: string | number[] | Uint8Array
@@ -31,7 +31,7 @@ export const Int = Schema.Struct({
 
 export type Int = Schema.Schema.Type<typeof Int>
 
-type IntEncoded = Schema.Schema.Encoded<typeof Int>
+export type IntEncoded = Schema.Schema.Encoded<typeof Int>
 
 export function makeInt(value: number | bigint): Int {
   return { int: BigInt(value) }
@@ -48,7 +48,7 @@ export type List = {
   readonly list: ReadonlyArray<Data>
 }
 
-type ListEncoded = {
+export type ListEncoded = {
   readonly list: ReadonlyArray<DataEncoded>
 }
 
@@ -77,7 +77,7 @@ export type Map = {
   }>
 }
 
-type MapEncoded = {
+export type MapEncoded = {
   readonly map: ReadonlyArray<{
     readonly k: DataEncoded
     readonly v: DataEncoded
@@ -103,7 +103,7 @@ export type Constr = {
   readonly fields: ReadonlyArray<Data>
 }
 
-type ConstrEncoded = {
+export type ConstrEncoded = {
   readonly constructor: number
   readonly fields: ReadonlyArray<DataEncoded>
 }
@@ -117,12 +117,16 @@ export function makeConstr(tag: bigint | number, fields: Data[]): Constr {
 
 export const Data = Schema.Union(ByteArray, Constr, Int, List, Map, Constr)
 
+export const DataUnencoded = Schema.typeSchema(Data)
+
+export type DataUnencoded = Data
+
 /**
  * Must be defined explicitly to avoid circular reference problems
  */
 export type Data = ByteArray | Constr | Int | List | Map
 
-type DataEncoded =
+export type DataEncoded =
   | ByteArrayEncoded
   | ConstrEncoded
   | IntEncoded

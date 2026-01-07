@@ -1,12 +1,12 @@
-import { Either } from "effect"
+//import { Either } from "effect"
 
 /**
  * The context that terms and frames need to operate.
  */
 export interface Context {
   readonly cost: CostTracker
-  getBuiltin(id: number): Builtin | undefined
-  print(message: string, site?: Site | undefined): void
+  //getBuiltin(id: number): Builtin | undefined
+  print(message: string, site?: Site): void
   popLastMessage(): string | undefined
 }
 
@@ -53,13 +53,13 @@ export interface CostTracker {
 /**
  * Instantiate a `Machine` with {@link makeCekMachine}.
  */
-export interface Machine extends Context {
-  readonly builtins: Builtin[]
-  readonly logger: Logger | undefined
-  readonly state: State
-  readonly trace: { message: string; site?: Site }[]
-  eval(): Result
-}
+//export interface Machine extends Context {
+//  readonly builtins: Builtin[]
+//  readonly logger: Logger | undefined
+//  readonly state: State
+//  readonly trace: { message: string; site?: Site }[]
+//  eval(): Result
+//}
 
 /**
  * TODO: rename to CEKResult
@@ -77,12 +77,12 @@ export interface Machine extends Context {
  * }} CekResult
  * Return value is optional and can be omitted if the UplcValue doesn't suffice to contain it (eg. lambda functions).
  */
-export interface Result {
-  result: Either.Either<
-    string | Value,
-    { error: string; callSites: CallSiteInfo[] }
-  >
-}
+//export interface Result {
+//  result: Either.Either<
+//    string | Value,
+//    { error: string; callSites: CallSiteInfo[] }
+//  >
+//}
 
 export interface Site {
   readonly file: string
