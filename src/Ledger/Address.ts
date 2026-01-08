@@ -69,7 +69,7 @@ export function make(
   isMainnet: boolean,
   spendingCredential: Credential.Credential,
   stakingCredential?: Credential.Credential
-) {
+): Address {
   const prefix = isMainnet ? "addr" : "addr_test"
   const bytes: number[] = toShelleyBytes(
     isMainnet,
@@ -128,7 +128,7 @@ const decodeInternal = (bytes: Bytes.BytesLike) =>
     }
 
     const innerBytes = (yield* Cbor.isBytes(bytes))
-      ? (yield* Cbor.decodeBytes(bytes))
+      ? yield* Cbor.decodeBytes(bytes)
       : Bytes.toArray(bytes)
 
     const head = innerBytes[0]
@@ -202,18 +202,32 @@ const decodeInternal = (bytes: Bytes.BytesLike) =>
         }
       default:
         return yield* Effect.fail(
-          new Error(`invalid Shelley Address header ${head}`)
+          new Cbor.DecodeError(
+            Bytes.makeStream(bytes),
+            `invalid Shelley Address header ${head}`
+          )
         )
     }
   })
 
-export const decode = (bytes: Bytes.BytesLike) =>
-  Effect.gen(function* () {
-    const { isMainnet, spendingCredential, stakingCredential } =
-      yield* decodeInternal(bytes)
-
-    return make(isMainnet, spendingCredential, stakingCredential)
-  })
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<Address> =>
+  decodeInternal(bytes).pipe(
+    Effect.map(({ isMainnet, spendingCredential, stakingCredential }) =>
+      make(isMainnet, spendingCredential, stakingCredential)
+    ),
+    Effect.catchTag(
+      "ParseError",
+      (e) => new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+    ),
+    Effect.catchTag(
+      "DecodeException",
+      (e) =>
+        new Cbor.DecodeError(
+          Bytes.makeStream(bytes),
+          `bech32 decoding failed (${e.message})`
+        )
+    )
+  )
 
 export function encode(address: Address): number[] {
   return Cbor.encodeBytes(bytes(address))

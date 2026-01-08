@@ -1,7 +1,7 @@
 import { Schema } from "effect"
+import { Data } from "../Uplc"
 import { PubKeyHash } from "./PubKeyHash.js"
 import { ValidatorHash } from "./ValidatorHash.js"
-import { Data } from "../Uplc/index.js"
 
 export const Credential = Schema.Union(
   Schema.TaggedStruct("PubKey", { hash: PubKeyHash }),

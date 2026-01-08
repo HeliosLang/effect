@@ -6,6 +6,7 @@
   "types": "types/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
+    "./Ledger": "./dist/Ledger/index.js",
     "./Uplc": "./dist/Uplc/index.js"
   },
   "scripts": {

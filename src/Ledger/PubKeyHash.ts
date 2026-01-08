@@ -1,9 +1,9 @@
 import { Effect, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import { decodeBytes, DecodeEffect, encodeBytes } from "../Cbor.js"
-import { Data } from "../Uplc/index.js"
+import { Data } from "../Uplc"
 
-export function isValid(pkh: string): boolean {
+export function isValid(pkh: string): pkh is PubKeyHash {
   return /^[0-9a-fA-F]+$/.test(pkh) && pkh.length == 56
 }
 

@@ -427,6 +427,31 @@ const Array$ = <ItemType>(
 
 export { Array$ as Array }
 
+export const PairArray = <KeyType, ValueType>(
+  keySchema: Schema.Schema<KeyType, Schema.Schema.Encoded<typeof Data>>,
+  valueSchema: Schema.Schema<ValueType, Schema.Schema.Encoded<typeof Data>>
+) =>
+  Schema.transformOrFail(
+    Data,
+    Schema.Array(Schema.Tuple(keySchema, valueSchema)),
+    {
+      strict: true,
+      decode: (data) => {
+        if ("map" in data) {
+          return ParseResult.succeed(
+            data.map.map(({ k, v }) => [k, v] as const)
+          )
+        } else {
+          return ParseResult.fail(
+            new ParseResult.Unexpected(data, "expected MapData")
+          )
+        }
+      },
+      encode: (pairs) =>
+        ParseResult.succeed({ map: pairs.map(([k, v]) => ({ k, v })) })
+    }
+  )
+
 export const Struct = <
   FieldTypes extends { [fieldName: string]: Schema.Schema<any, Data> }
 >(
@@ -617,7 +642,9 @@ export const Enum = <
       encode: (value) => {
         const variantName = value._tag
 
-        const tag = Object.keys(variants).indexOf(variantName as unknown as string)
+        const tag = Object.keys(variants).indexOf(
+          variantName as unknown as string
+        )
 
         return ParseResult.succeed({
           constructor: tag,
