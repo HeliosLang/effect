@@ -118,7 +118,8 @@ export function encode(txOutput: TxOutput): number[] {
   if (
     (!txOutput.datum || txOutput.datum._tag == "Hash") &&
     !txOutput.refScript &&
-    !txOutput.encodingConfig.strictBabbage
+    (txOutput.encodingConfig.strictBabbage == null ||
+      !txOutput.encodingConfig.strictBabbage)
   ) {
     // this is needed to match eternl wallet (de)serialization (annoyingly eternl deserializes the tx and then signs its own serialization)
     // hopefully cardano-cli signs whatever serialization we choose (so we use the eternl variant in order to be compatible with both)

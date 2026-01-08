@@ -1,10 +1,11 @@
-import { Context, Effect, Option, ParseResult, Schema } from "effect"
+import { Effect, Option, ParseResult, Schema } from "effect"
 import * as Bech32 from "../Bech32.js"
 import * as Cbor from "../Cbor.js"
 import * as Bytes from "../internal/Bytes.js"
 import { Data } from "../Uplc/index.js"
-import * as PubKeyHash from "./PubKeyHash.js"
 import * as Credential from "./Credential.js"
+import { IsMainnet } from "./IsMainnet.js"
+import * as PubKeyHash from "./PubKeyHash.js"
 import * as ValidatorHash from "./ValidatorHash.js"
 
 export function isValid(addr: string): boolean {
@@ -15,11 +16,6 @@ export function isValid(addr: string): boolean {
 
   return false
 }
-
-export class IsMainnet extends Context.Tag("IS_MAINNET")<
-  IsMainnet,
-  boolean
->() {}
 
 export const Address = Schema.String.pipe(
   Schema.filter((addr: string) => {

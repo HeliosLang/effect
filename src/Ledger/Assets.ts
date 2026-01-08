@@ -10,7 +10,7 @@ export const Assets = Schema.Record({
   value: Schema.BigIntFromSelf
 }).pipe(
   Schema.filter((assets) => {
-    for (let key in assets) {
+    for (const key in assets) {
       if (!AssetClass.isValid(key)) {
         return `Invalid AssetClass ${key}`
       }
@@ -31,10 +31,10 @@ export const FromUplcData = Schema.transform(
   {
     strict: true,
     decode: (outer) => {
-      let assets: Record<string, bigint> = {}
+      const assets: Record<string, bigint> = {}
 
-      for (let [policy, inner] of outer) {
-        for (let [tokenName, quantity] of inner) {
+      for (const [policy, inner] of outer) {
+        for (const [tokenName, quantity] of inner) {
           assets[AssetClass.make(policy, tokenName)] = quantity
         }
       }
@@ -100,7 +100,7 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<Assets> =>
         assets[AssetClass.ADA] = lovelace
       }
 
-      for (let [policy, inner] of otherAssets) {
+      for (const [policy, inner] of otherAssets) {
         if (policy._tag == "None") {
           return yield* new Cbor.DecodeError(
             stream,
@@ -108,7 +108,7 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<Assets> =>
           )
         }
 
-        for (let [tokenName, quantity] of inner) {
+        for (const [tokenName, quantity] of inner) {
           const assetClass = AssetClass.make(policy, tokenName)
 
           assets[assetClass] = quantity

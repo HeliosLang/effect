@@ -1,5 +1,4 @@
 import { Encoding, Option, Schema } from "effect"
-//import * as Bech32 from "../Bech32.js"
 import * as Bytes from "../internal/Bytes.js"
 import { Data } from "../Uplc"
 import * as MintingPolicy from "./MintingPolicy.js"
@@ -65,11 +64,6 @@ export const FromUplcData = Schema.transform(
     }
   }
 )
-
-export function fingerprint(assetClass: string): string {
-  throw new Error("not yet implemented (need blake2b hashing function)")
-  //return Bech32.encode("asset", )
-}
 
 export function pretty(assetClass: string): string {
   if (assetClass.length == 0) {
