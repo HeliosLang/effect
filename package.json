@@ -4,6 +4,10 @@
   "description": "",
   "main": "dist/index.js",
   "types": "types/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./Uplc": "./dist/Uplc/index.js"
+  },
   "scripts": {
     "build": "tsc -p ./tsconfig.build.json",
     "lint": "eslint",

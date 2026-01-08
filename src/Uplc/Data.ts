@@ -1,23 +1,25 @@
-import { Effect, Schema } from "effect"
+import { Effect, Encoding, ParseResult, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
+import { decode as decodeUtf8, encode as encodeUtf8 } from "../internal/Utf8.js"
 import * as Cbor from "../Cbor.js"
 
 const SuspendedData = Schema.suspend(
-  (): Schema.Schema<Data, DataEncoded> => Data
+  (): Schema.Schema<Data, DataJSON> => DataFromJSON
 )
 
-export const ByteArray = Schema.Struct({
-  bytes: Schema.String
+export const ByteArrayDataFromJSON = Schema.Struct({
+  bytes: Schema.Uint8ArrayFromHex
 })
 
-export type ByteArray = Schema.Schema.Type<typeof ByteArray>
+export type ByteArrayData = Schema.Schema.Type<typeof ByteArrayDataFromJSON>
+export type ByteArrayDataJSON = Schema.Schema.Encoded<
+  typeof ByteArrayDataFromJSON
+>
 
-export type ByteArrayEncoded = Schema.Schema.Encoded<typeof ByteArray>
-
-export function makeByteArray(
+export function makeByteArrayData(
   bytes: string | number[] | Uint8Array
-): ByteArray {
-  return { bytes: Bytes.toHex(bytes) }
+): ByteArrayData {
+  return { bytes: Bytes.toUint8Array(bytes) }
 }
 
 /**
@@ -25,40 +27,39 @@ export function makeByteArray(
  *
  * Cannot used Branded types due Schema issues.
  */
-export const Int = Schema.Struct({
+export const IntDataFromJSON = Schema.Struct({
   int: Schema.BigIntFromNumber
 })
 
-export type Int = Schema.Schema.Type<typeof Int>
+export type IntData = Schema.Schema.Type<typeof IntDataFromJSON>
+export type IntDataJSON = Schema.Schema.Encoded<typeof IntDataFromJSON>
 
-export type IntEncoded = Schema.Schema.Encoded<typeof Int>
-
-export function makeInt(value: number | bigint): Int {
+export function makeIntData(value: number | bigint): IntData {
   return { int: BigInt(value) }
 }
 
-export const List = Schema.Struct({
+export const ListDataFromJSON = Schema.Struct({
   list: Schema.Array(SuspendedData)
 })
 
 /**
  * Must be defined explicitly to avoid circular reference problems
  */
-export type List = {
+export type ListData = {
   readonly list: ReadonlyArray<Data>
 }
 
-export type ListEncoded = {
-  readonly list: ReadonlyArray<DataEncoded>
+export type ListDataJSON = {
+  readonly list: ReadonlyArray<DataJSON>
 }
 
-export function makeList(items: Data[]): List {
+export function makeListData(items: Data[]): ListData {
   return {
     list: items
   }
 }
 
-export const Map = Schema.Struct({
+export const MapDataFromJSON = Schema.Struct({
   map: Schema.Array(
     Schema.Struct({
       k: SuspendedData,
@@ -70,27 +71,27 @@ export const Map = Schema.Struct({
 /**
  * Must be defined explicitly to avoid circular reference problems
  */
-export type Map = {
+export type MapData = {
   readonly map: ReadonlyArray<{
     readonly k: Data
     readonly v: Data
   }>
 }
 
-export type MapEncoded = {
+export type MapDataJSON = {
   readonly map: ReadonlyArray<{
-    readonly k: DataEncoded
-    readonly v: DataEncoded
+    readonly k: DataJSON
+    readonly v: DataJSON
   }>
 }
 
-export function makeMap(entries: [Data, Data][]): Map {
+export function makeMapData(entries: [Data, Data][]): MapData {
   return {
     map: entries.map(([k, v]) => ({ k, v }))
   }
 }
 
-export const Constr = Schema.Struct({
+export const ConstrDataFromJSON = Schema.Struct({
   constructor: Schema.Number,
   fields: Schema.Array(SuspendedData)
 })
@@ -98,40 +99,47 @@ export const Constr = Schema.Struct({
 /**
  * Must be defined explicitly to avoid circular reference problems
  */
-export type Constr = {
+export type ConstrData = {
   readonly constructor: number
   readonly fields: ReadonlyArray<Data>
 }
 
-export type ConstrEncoded = {
+export type ConstrDataJSON = {
   readonly constructor: number
-  readonly fields: ReadonlyArray<DataEncoded>
+  readonly fields: ReadonlyArray<DataJSON>
 }
 
-export function makeConstr(tag: bigint | number, fields: Data[]): Constr {
+export function makeConstrData(
+  tag: bigint | number,
+  fields: Data[]
+): ConstrData {
   return {
     constructor: Number(tag),
     fields
   }
 }
 
-export const Data = Schema.Union(ByteArray, Constr, Int, List, Map, Constr)
+export const DataFromJSON = Schema.Union(
+  ByteArrayDataFromJSON,
+  IntDataFromJSON,
+  ListDataFromJSON,
+  MapDataFromJSON,
+  ConstrDataFromJSON
+)
 
-export const DataUnencoded = Schema.typeSchema(Data)
-
-export type DataUnencoded = Data
+export const Data = Schema.typeSchema(DataFromJSON)
 
 /**
  * Must be defined explicitly to avoid circular reference problems
  */
-export type Data = ByteArray | Constr | Int | List | Map
+export type Data = ByteArrayData | ConstrData | IntData | ListData | MapData
 
-export type DataEncoded =
-  | ByteArrayEncoded
-  | ConstrEncoded
-  | IntEncoded
-  | ListEncoded
-  | MapEncoded
+export type DataJSON =
+  | ByteArrayDataJSON
+  | ConstrDataJSON
+  | IntDataJSON
+  | ListDataJSON
+  | MapDataJSON
 
 /**
  * Simple recursive CBOR decoder
@@ -145,18 +153,18 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<Data> =>
     if (yield* Cbor.isList(stream)) {
       const items = yield* Cbor.decodeList(decode)(stream)
 
-      return makeList(items)
+      return makeListData(items)
     } else if (yield* Cbor.isBytes(stream)) {
-      return makeByteArray(yield* Cbor.decodeBytes(stream))
+      return makeByteArrayData(yield* Cbor.decodeBytes(stream))
     } else if (yield* Cbor.isMap(stream)) {
       const entries = yield* Cbor.decodeMap(decode, decode)(stream)
 
-      return makeMap(entries)
+      return makeMapData(entries)
     } else if (yield* Cbor.isConstr(stream)) {
       const [tag, fields] = yield* Cbor.decodeConstr(decode)(stream)
-      return makeConstr(tag, fields)
+      return makeConstrData(tag, fields)
     } else {
-      return makeInt(yield* Cbor.decodeInt(stream))
+      return makeIntData(yield* Cbor.decodeInt(stream))
     }
   })
 
@@ -257,3 +265,366 @@ export function log2i(x: bigint): number {
 
   return p
 }
+
+const BigInt$ = Schema.transformOrFail(Data, Schema.BigIntFromSelf, {
+  strict: true,
+  decode: (data) => {
+    if ("int" in data) {
+      return ParseResult.succeed(data.int)
+    } else {
+      return ParseResult.fail(
+        new ParseResult.Unexpected(data, "expected IntData")
+      )
+    }
+  },
+  encode: (value) => ParseResult.succeed({ int: value })
+})
+
+export { BigInt$ as BigInt }
+
+export const Int = Schema.transformOrFail(Data, Schema.Int, {
+  strict: true,
+  decode: (data) => {
+    if ("int" in data) {
+      return ParseResult.succeed(Number(data.int))
+    } else {
+      return ParseResult.fail(
+        new ParseResult.Unexpected(data, "expected IntData")
+      )
+    }
+  },
+  encode: (value) => {
+    if (value % 1.0 != 0) {
+      return ParseResult.fail(
+        new ParseResult.Unexpected(value, "not an integer")
+      )
+    } else {
+      return ParseResult.succeed({ int: BigInt(Math.round(value)) })
+    }
+  }
+})
+
+export const ByteArray = Schema.transformOrFail(
+  Data,
+  Schema.Uint8ArrayFromSelf,
+  {
+    strict: true,
+    decode: (data) => {
+      if ("bytes" in data) {
+        return ParseResult.succeed(data.bytes)
+      } else {
+        return ParseResult.fail(
+          new ParseResult.Unexpected(data, "expected ByteArrayData")
+        )
+      }
+    },
+    encode: (hex) => ParseResult.succeed({ bytes: hex })
+  }
+)
+
+export const Hex = Schema.transformOrFail(Data, Schema.String, {
+  strict: true,
+  decode: (data) => {
+    if ("bytes" in data) {
+      return ParseResult.succeed(Encoding.encodeHex(data.bytes))
+    } else {
+      return ParseResult.fail(
+        new ParseResult.Unexpected(data, "expected ByteArrayData")
+      )
+    }
+  },
+  encode: (hex) =>
+    Encoding.decodeHex(hex).pipe(
+      Effect.map((bs) => ({ bytes: bs })),
+      Effect.mapError(
+        (_e) => new ParseResult.Unexpected(hex, "invalid Hex string")
+      )
+    )
+})
+
+export const Option = <SomeType>(
+  someSchema: Schema.Schema<SomeType, Schema.Schema.Encoded<typeof Data>>
+) =>
+  Schema.transformOrFail(Data, Schema.Option(someSchema), {
+    strict: true,
+    decode: (data) => {
+      if ("fields" in data) {
+        if (data.constructor == 0) {
+          if (data.fields.length < 1) {
+            return ParseResult.fail(
+              new ParseResult.Unexpected(
+                data,
+                "expected at least one field in ConstrData"
+              )
+            )
+          }
+
+          return ParseResult.succeed({
+            _tag: "Some" as const,
+            value: data.fields[0]
+          })
+        } else if (data.constructor == 1) {
+          return ParseResult.succeed({ _tag: "None" as const })
+        } else {
+          return ParseResult.fail(
+            new ParseResult.Unexpected(
+              data,
+              "expected ConstrData with tag 0 or 1"
+            )
+          )
+        }
+      } else {
+        return ParseResult.fail(
+          new ParseResult.Unexpected(data, "expected ConstrData")
+        )
+      }
+    },
+    encode: (value) => {
+      if (value._tag == "None") {
+        return ParseResult.succeed({ constructor: 1, fields: [] })
+      } else {
+        return ParseResult.succeed({ constructor: 0, fields: [value.value] })
+      }
+    }
+  })
+
+const String$ = Schema.transformOrFail(Data, Schema.String, {
+  strict: true,
+  decode: (data) => {
+    if ("bytes" in data) {
+      return decodeUtf8(data.bytes).pipe(
+        Effect.mapError((e) => {
+          return new ParseResult.Unexpected(data.bytes, e.message)
+        })
+      )
+    } else {
+      return ParseResult.fail(
+        new ParseResult.Unexpected(data, "expected ByteArrayData")
+      )
+    }
+  },
+  encode: (s) => ParseResult.succeed({ bytes: encodeUtf8(s) })
+})
+
+export { String$ as String }
+
+const Array$ = <ItemType>(
+  itemSchema: Schema.Schema<ItemType, Schema.Schema.Encoded<typeof Data>>
+) =>
+  Schema.transformOrFail(Data, Schema.Array(itemSchema), {
+    strict: true,
+    decode: (data) => {
+      if ("list" in data) {
+        return ParseResult.succeed(data.list)
+      } else {
+        return ParseResult.fail(
+          new ParseResult.Unexpected(data, "expected ListData")
+        )
+      }
+    },
+    encode: (items) => ParseResult.succeed({ list: items })
+  })
+
+export { Array$ as Array }
+
+export const Struct = <
+  FieldTypes extends { [fieldName: string]: Schema.Schema<any, Data> }
+>(
+  fields: FieldTypes
+) =>
+  Schema.transformOrFail(Data, Schema.Struct(fields), {
+    strict: true,
+    decode: (data) => {
+      if ("list" in data) {
+        return Effect.all(
+          Object.entries(fields).map(([fieldName], i) => {
+            if (i >= data.list.length) {
+              return Effect.fail(
+                new ParseResult.Unexpected(
+                  data,
+                  `expected at least ${i + 1} entries in ListData`
+                )
+              )
+            }
+
+            const itemData = data.list[i]
+
+            return Effect.succeed([fieldName, itemData] as [string, Data])
+          })
+        ).pipe(Effect.map(Object.fromEntries))
+      } else {
+        return ParseResult.fail(
+          new ParseResult.Unexpected(data, "expected ListData")
+        )
+      }
+    },
+    encode: (fields) => ParseResult.succeed({ list: Object.values(fields) })
+  })
+
+export const EnumVariant = <
+  FieldTypes extends { [fieldName: string]: Schema.Schema<any, Data> }
+>(
+  tag: number | bigint,
+  fields: FieldTypes
+) =>
+  Schema.transformOrFail(Data, Schema.Struct(fields), {
+    strict: true,
+    decode: (data) => {
+      if ("fields" in data) {
+        if (data.constructor != Number(tag)) {
+          return ParseResult.fail(
+            new ParseResult.Unexpected(
+              data,
+              `expected ConstrData with constructor tag ${tag}`
+            )
+          )
+        }
+
+        return Effect.all(
+          Object.entries(fields).map(([fieldName], i) => {
+            if (i >= data.fields.length) {
+              return Effect.fail(
+                new ParseResult.Unexpected(
+                  data,
+                  `expected at least ${i + 1} entries in ConstrData`
+                )
+              )
+            }
+
+            const itemData = data.fields[i]
+
+            return Effect.succeed([fieldName, itemData] as [string, Data])
+          })
+        ).pipe(Effect.map(Object.fromEntries))
+      } else {
+        return ParseResult.fail(
+          new ParseResult.Unexpected(data, "expected ConstrData")
+        )
+      }
+    },
+    encode: (fields) =>
+      ParseResult.succeed({
+        constructor: Number(tag),
+        fields: Object.values(fields)
+      })
+  })
+
+type EnumUnionTypeInternal<
+  VariantName,
+  VariantTypes extends {
+    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+  }
+> = VariantName extends string
+  ? { _tag: VariantName } & {
+      [FieldName in keyof VariantTypes[VariantName]]: Schema.Schema.Type<
+        VariantTypes[VariantName][FieldName]
+      >
+    }
+  : never
+type EnumUnionType<
+  VariantTypes extends {
+    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+  }
+> = EnumUnionTypeInternal<keyof VariantTypes, VariantTypes>
+type EnumUnionDataInternal<
+  VariantName,
+  VariantTypes extends {
+    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+  }
+> = VariantName extends string
+  ? { _tag: VariantName } & {
+      [FieldName in keyof VariantTypes[VariantName]]: Data
+    }
+  : never
+type EnumUnionData<
+  VariantTypes extends {
+    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+  }
+> = EnumUnionDataInternal<keyof VariantTypes, VariantTypes>
+
+export const Enum = <
+  VariantTypes extends {
+    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+  }
+>(
+  variants: VariantTypes
+): Schema.Schema<EnumUnionType<VariantTypes>, Data> =>
+  Schema.transformOrFail(
+    Data,
+    Schema.Union(
+      ...Object.entries(variants).map(
+        ([variantName, fieldSchemas]) =>
+          Schema.TaggedStruct(
+            variantName,
+            fieldSchemas
+          ) as unknown as Schema.Schema<
+            EnumUnionType<VariantTypes>,
+            EnumUnionData<VariantTypes>
+          >
+      )
+    ),
+    {
+      strict: true,
+      decode: (
+        data
+      ): Effect.Effect<EnumUnionData<VariantTypes>, ParseResult.ParseIssue> => {
+        if ("fields" in data) {
+          const tag = data.constructor
+
+          const variantName: keyof VariantTypes = Object.keys(variants)[tag]
+
+          if ((variantName as string | undefined) == undefined) {
+            return ParseResult.fail(
+              new ParseResult.Unexpected(
+                data,
+                `no variant defined for tag ${tag}`
+              )
+            )
+          }
+
+          const fields = variants[variantName]
+
+          return Effect.all(
+            Object.entries(fields).map(([fieldName], i) => {
+              if (i >= data.fields.length) {
+                return Effect.fail(
+                  new ParseResult.Unexpected(
+                    data,
+                    `expected at least ${i + 1} entries in ConstrData of ${variantName as unknown as string}`
+                  )
+                )
+              }
+
+              const itemData = data.fields[i]
+
+              return Effect.succeed([fieldName, itemData] as [string, Data])
+            })
+          ).pipe(
+            Effect.map(
+              (entries) =>
+                ({
+                  _tag: variantName,
+                  ...Object.fromEntries(entries)
+                }) as unknown as EnumUnionData<VariantTypes>
+            )
+          )
+        } else {
+          return ParseResult.fail(
+            new ParseResult.Unexpected(data, "expected ConstrData")
+          )
+        }
+      },
+      encode: (value) => {
+        const variantName = value._tag
+
+        const tag = Object.keys(variants).indexOf(variantName as unknown as string)
+
+        return ParseResult.succeed({
+          constructor: tag,
+          fields: Object.entries(value)
+            .filter(([key]) => key != "_tag")
+            .map(([, field]) => field) as Data[]
+        })
+      }
+    }
+  )
