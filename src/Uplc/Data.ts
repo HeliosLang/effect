@@ -304,6 +304,30 @@ export const Int = Schema.transformOrFail(Data, Schema.Int, {
   }
 })
 
+export const Real = (decimals: number = 6) => {
+  if (decimals < 0) {
+    throw new Error("decimals can't be negative")
+  }
+
+  const precision = Math.pow(10, decimals)
+
+  return Schema.transformOrFail(Data, Schema.Number, {
+    strict: true,
+    decode: (data) => {
+      if ("int" in data) {
+        return ParseResult.succeed(Number(data.int) / precision)
+      } else {
+        return ParseResult.fail(
+          new ParseResult.Unexpected(data, "expected IntData")
+        )
+      }
+    },
+    encode: (value) => {
+      return ParseResult.succeed({ int: BigInt(Math.round(value * precision)) })
+    }
+  })
+}
+
 export const ByteArray = Schema.transformOrFail(
   Data,
   Schema.Uint8ArrayFromSelf,
