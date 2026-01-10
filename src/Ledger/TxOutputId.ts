@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
+import * as Uplc from "../Uplc"
 import * as TxId from "./TxId.js"
 
 export function isValid(txOutputId: string): txOutputId is TxOutputId {
@@ -37,6 +38,26 @@ export type TxOutputId = Schema.Schema.Type<typeof TxOutputId>
 export function make(txId: TxId.TxId, utxoIdx: number | bigint): TxOutputId {
   return (txId + utxoIdx.toString()) as TxOutputId
 }
+
+export const FromUplcData = Schema.transform(
+  Uplc.Data.EnumVariant(0, {
+    txId: TxId.FromUplcData,
+    utxoIdx: Uplc.Data.Int
+  }),
+  TxOutputId,
+  {
+    strict: true,
+    decode: ({ txId, utxoIdx }) => {
+      return make(txId, utxoIdx)
+    },
+    encode: (txOutputId) => {
+      return {
+        txId: txId(txOutputId as TxOutputId),
+        utxoIdx: utxoIdx(txOutputId as TxOutputId)
+      }
+    }
+  }
+)
 
 export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxOutputId> =>
   Cbor.decodeTuple([TxId.decode, Cbor.decodeInt])(bytes).pipe(
