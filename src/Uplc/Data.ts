@@ -3,7 +3,7 @@ import * as Bytes from "../internal/Bytes.js"
 import { decode as decodeUtf8, encode as encodeUtf8 } from "../internal/Utf8.js"
 import * as Cbor from "../Cbor.js"
 
-const SuspendedData = Schema.suspend(
+const SuspendedDataFromJSON = Schema.suspend(
   (): Schema.Schema<Data, DataJSON> => DataFromJSON
 )
 
@@ -39,7 +39,7 @@ export function makeIntData(value: number | bigint): IntData {
 }
 
 export const ListDataFromJSON = Schema.Struct({
-  list: Schema.Array(SuspendedData)
+  list: Schema.Array(SuspendedDataFromJSON)
 })
 
 /**
@@ -62,8 +62,8 @@ export function makeListData(items: Data[]): ListData {
 export const MapDataFromJSON = Schema.Struct({
   map: Schema.Array(
     Schema.Struct({
-      k: SuspendedData,
-      v: SuspendedData
+      k: SuspendedDataFromJSON,
+      v: SuspendedDataFromJSON
     })
   )
 })
@@ -93,7 +93,7 @@ export function makeMapData(entries: [Data, Data][]): MapData {
 
 export const ConstrDataFromJSON = Schema.Struct({
   constructor: Schema.Number,
-  fields: Schema.Array(SuspendedData)
+  fields: Schema.Array(SuspendedDataFromJSON)
 })
 
 /**
@@ -508,6 +508,52 @@ export const Struct = <
       }
     },
     encode: (fields) => ParseResult.succeed({ list: Object.values(fields) })
+  })
+
+export const StructFromMap = <
+  FieldTypes extends { [fieldName: string]: Schema.Schema<any, Data> }
+>(
+  fields: FieldTypes
+) =>
+  Schema.transformOrFail(Data, Schema.Struct(fields), {
+    strict: true,
+    decode: (data) => {
+      if ("map" in data) {
+        return Effect.all(
+          Object.entries(fields).map(([fieldName]) => {
+            const fieldNameBytes = encodeUtf8(fieldName)
+            const pairData = data.map.find(
+              ({ k }) =>
+                "bytes" in k &&
+                k.bytes.length == fieldNameBytes.length &&
+                k.bytes.every((b, i) => b == fieldNameBytes[i])
+            )
+
+            if (!pairData) {
+              return Effect.fail(
+                new ParseResult.Unexpected(
+                  data,
+                  `couldn't find field '${fieldName}' in MapData`
+                )
+              )
+            }
+
+            return Effect.succeed([fieldName, pairData.v] as [string, Data])
+          })
+        ).pipe(Effect.map(Object.fromEntries))
+      } else {
+        return ParseResult.fail(
+          new ParseResult.Unexpected(data, "expected MapData")
+        )
+      }
+    },
+    encode: (fields) =>
+      ParseResult.succeed({
+        map: Object.entries(fields).map(([key, field]) => ({
+          k: { bytes: encodeUtf8(key) },
+          v: field as Data
+        }))
+      })
   })
 
 export const EnumVariant = <
