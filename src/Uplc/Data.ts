@@ -432,6 +432,33 @@ const String$ = Schema.transformOrFail(Data, Schema.String, {
 
 export { String$ as String }
 
+export const LiteralString = <T extends string>(value: T) => {
+  const valueBytes = encodeUtf8(value)
+
+  return Schema.transformOrFail(Data, Schema.Literal(value), {
+    strict: true,
+    decode: (data) => {
+      if ("bytes" in data) {
+        if (
+          data.bytes.length == valueBytes.length &&
+          data.bytes.every((b, i) => b == valueBytes[i])
+        ) {
+          return ParseResult.succeed(value)
+        } else {
+          return ParseResult.fail(
+            new ParseResult.Unexpected(data, `expected '${value}'`)
+          )
+        }
+      } else {
+        return ParseResult.fail(
+          new ParseResult.Unexpected(data, "expected ByteArrayData")
+        )
+      }
+    },
+    encode: (s) => ParseResult.succeed({ bytes: encodeUtf8(s) })
+  })
+}
+
 const Array$ = <ItemType>(
   itemSchema: Schema.Schema<ItemType, Schema.Schema.Encoded<typeof Data>>
 ) =>
