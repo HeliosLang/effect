@@ -48,17 +48,9 @@ export function encode(txInput: UTxO, full: boolean = false) {
   if (full) {
     return Cbor.encodeTuple([
       UTxORef.encode(txInput.ref),
-      TxOutput.encode(output(txInput))
+      TxOutput.encode(txInput.output)
     ])
   } else {
     return UTxORef.encode(txInput.ref)
   }
-}
-
-export function output(utxo: UTxO): TxOutput.TxOutput {
-  if (!utxo.output) {
-    throw new Error("utxo.output not available")
-  }
-
-  return utxo.output
 }
