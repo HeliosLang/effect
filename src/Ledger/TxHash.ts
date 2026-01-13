@@ -1,24 +1,24 @@
 import { Effect, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
-import { Data } from "../Uplc"
+import { Data } from "../Uplc/index.js"
 
-export function isValid(txId: string): txId is TxId {
-  return txId.length == 64 && /^[0-9a-fA-F]+$/.test(txId)
+export function isValid(hash: string): hash is TxHash {
+  return hash.length == 64 && /^[0-9a-fA-F]+$/.test(hash)
 }
 
-export const TxId = Schema.String.pipe(
-  Schema.filter((id: string) => isValid(id) || "Invalid Cardano TxId"),
-  Schema.brand("TxId")
+export const TxHash = Schema.String.pipe(
+  Schema.filter((id: string) => isValid(id) || "Invalid Cardano TxHash"),
+  Schema.brand("TxHash")
 )
 
-export type TxId = Schema.Schema.Type<typeof TxId>
+export type TxHash = Schema.Schema.Type<typeof TxHash>
 
 export const FromUplcData = Schema.transform(
   Data.EnumVariant(0, {
     bytes: Data.ByteArray
   }),
-  TxId,
+  TxHash,
   {
     strict: true,
     decode: ({ bytes }) => Encoding.encodeHex(bytes),
@@ -27,10 +27,10 @@ export const FromUplcData = Schema.transform(
 )
 
 export function make(txId: Bytes.BytesLike) {
-  return Schema.decode(TxId)(Bytes.toHex(txId))
+  return Schema.decode(TxHash)(Bytes.toHex(txId))
 }
 
-export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxId> =>
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxHash> =>
   Cbor.decodeBytes(bytes).pipe(
     Effect.flatMap(make),
     Effect.catchTag(
@@ -39,6 +39,6 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxId> =>
     )
   )
 
-export function encode(txId: TxId): number[] {
+export function encode(txId: TxHash): number[] {
   return Cbor.encodeBytes(txId)
 }

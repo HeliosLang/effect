@@ -37,7 +37,7 @@ export function make(
   if (policy._tag == "None") {
     return ADA
   } else {
-    return policy.value + Encoding.encodeHex(Bytes.toUint8Array(tokenName))
+    return (policy.value + Encoding.encodeHex(Bytes.toUint8Array(tokenName))) as AssetClass
   }
 }
 

@@ -1,8 +1,8 @@
 import { describe, it } from "bun:test"
 import { Effect } from "effect"
-import { decode } from "./TxInput.js"
+import { decode } from "./UTxO.js"
 
-describe("TxInput.decode()", () => {
+describe("UTxO.decode()", () => {
   it("works for UTxO returned from Cip30 wallet", () => {
     Effect.runSync(
       decode(

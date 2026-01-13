@@ -1,5 +1,6 @@
-import { Schema } from "effect"
-import * as TxOutputId from "./TxOutputId.js"
+import { Context, Effect, Schema } from "effect"
+import * as UTxORef from "../Ledger/UTxORef.js"
+import { ConnectionError, UnexpectedFormat } from "./errors.js"
 
 /**
  * The raw JSON can be downloaded from the following CDN locations:
@@ -17,7 +18,7 @@ import * as TxOutputId from "./TxOutputId.js"
  * Optionally, NetworkParams returned by a private node can specify a `collateralUTXO` to use (<txID>#<outputIndex> format). Any transaction submitted through that same node will then add the signature necessary to spend the collateral UTXO.
  * This allows the collateral UTXO managed to be done in a central place (i.e. the node).
  */
-export const NetworkParams = Schema.Struct({
+export const Params = Schema.Struct({
   txFeeFixed: Schema.Number,
   txFeePerByte: Schema.Number,
   exMemFeePerUnit: Schema.Number,
@@ -36,7 +37,12 @@ export const NetworkParams = Schema.Struct({
   costModelParamsV1: Schema.Array(Schema.Number),
   costModelParamsV2: Schema.Array(Schema.Number),
   costModelParamsV3: Schema.Array(Schema.Number),
-  collateralUTXO: Schema.optional(TxOutputId.TxOutputId)
+  collateralUTXO: Schema.optional(UTxORef.UTxORef)
 })
 
-export type NetworkParams = Schema.Schema.Type<typeof NetworkParams>
+export type Params = Schema.Schema.Type<typeof Params>
+
+export class Fetch extends Context.Tag("NetworkParamsFetch")<
+  Fetch,
+  () => Effect.Effect<Params, ConnectionError | UnexpectedFormat, never>
+>() {}
