@@ -19,14 +19,14 @@ export const DEFAULT_TX_OUTPUT_ENCODING_CONFIG: TxOutputEncodingConfig = {
 }
 
 // TODO: add ref script
-export const TxOutput = Schema.TaggedStruct("TxOutput", {
+export const TxOutput = Schema.Struct({
   address: Address.Address,
   assets: Assets.Assets,
   datum: Schema.optional(TxOutputDatum.TxOutputDatum),
   refScript: Schema.optional(Schema.Uint8ArrayFromSelf),
-  encodingConfig: Schema.Struct({
+  encodingConfig: Schema.optional(Schema.Struct({
     strictBabbage: Schema.optional(Schema.Boolean)
-  })
+  }))
 })
 
 export type TxOutput = Schema.Schema.Type<typeof TxOutput>
@@ -45,7 +45,6 @@ export function make({
   encodingConfig?: TxOutputEncodingConfig
 }): TxOutput {
   return {
-    _tag: "TxOutput",
     address,
     assets,
     datum,
@@ -118,7 +117,7 @@ export function encode(txOutput: TxOutput): number[] {
   if (
     (!txOutput.datum || txOutput.datum._tag == "Hash") &&
     !txOutput.refScript &&
-    (txOutput.encodingConfig.strictBabbage == null ||
+    (!txOutput.encodingConfig || txOutput.encodingConfig.strictBabbage == null ||
       !txOutput.encodingConfig.strictBabbage)
   ) {
     // this is needed to match eternl wallet (de)serialization (annoyingly eternl deserializes the tx and then signs its own serialization)

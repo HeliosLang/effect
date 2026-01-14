@@ -6,11 +6,16 @@ import * as ValidatorHash from "./ValidatorHash.js"
 
 export function isValid(assetClass: string): assetClass is AssetClass {
   const n = assetClass.length
-  return (
-    /^[0-9a-fA-F]+$/.test(assetClass) &&
-    n < 120 &&
-    (n == 0 || (n >= 56 && n % 2 == 0))
-  )
+
+  if (n == 0) {
+    return true
+  } else {
+    return (
+      /^[0-9a-fA-F]+$/.test(assetClass) &&
+      n < 120 &&
+      (n >= 56 && n % 2 == 0)
+    )
+  }
 }
 
 export const AssetClass = Schema.transform(

@@ -4,7 +4,7 @@ import * as Cbor from "../Cbor.js"
 import * as TxOutput from "./TxOutput.js"
 import * as UTxORef from "./UTxORef.js"
 
-export const UTxO = Schema.TaggedStruct("UTxO", {
+export const UTxO = Schema.Struct({
   ref: UTxORef.UTxORef,
   output: TxOutput.TxOutput
 })
@@ -16,7 +16,6 @@ export function make(
   output: TxOutput.TxOutput
 ): UTxO {
   return {
-    _tag: "UTxO",
     ref,
     output
   }
