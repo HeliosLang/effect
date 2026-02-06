@@ -1,53 +1,98 @@
-//import { Either } from "effect"
+import type { Tracker } from "./Cost.js"
+import type { Const, SourceSpan, Term } from "./Term.js"
 
 /**
  * The context that terms and frames need to operate.
  */
 export interface Context {
-  readonly cost: CostTracker
+  readonly cost: Tracker
   //getBuiltin(id: number): Builtin | undefined
   print(message: string, site?: Site): void
   popLastMessage(): string | undefined
 }
 
-export interface Cost {
-  readonly cpu: bigint
-  readonly mem: bigint
+/**
+ * `BuiltinValue` is equivalent to $\langle \texttt{builtin}~b~\overline{V}~\eta\rangle$ in the *CEK Machine* section of the [plutus core spec](https://plutus.cardano.intersectmbo.org/resources/plutus-core-spec.pdf):
+ *
+ *    - `id` is equivalent to $b$
+ *
+ */
+export type BuiltinValue = {
+  _tag: "Builtin"
+  id: number
+  forceCount: number
+  args: Value[]
+  name: string 
 }
 
-export type CostBreakdown = {
-  [name: string]: Cost & { count: number }
+/**
+ * `ConstValue` is equivalent to $\langle \texttt{con}~T~c\rangle$ in the *CEK Machine* section of the [Plutus Core spec](https://plutus.cardano.intersectmbo.org/resources/plutus-core-spec.pdf).
+ *
+ *    - `value` contains information related to both $T$ and $c$
+ *
+ * The optional `name` field is used for debugging.
+ */
+export type ConstValue = Const
+
+/**
+ * `ConstrValue` is equivalent to $\langle \texttt{constr}~i~\overline{V}\rangle$ in the *CEK Machine* section of the [plutus core spec](https://plutus.cardano.intersectmbo.org/resources/plutus-core-spec.pdf):
+ *
+ *    - `tag` is equivalent to $i$
+ *    - `args` is equivalent to $\overline{V}$
+ *
+ * The optional `name` is used for debugging.
+ */
+export type ConstrValue = {
+  _tag: "Constr"
+  tag: number
+  args: Value[]
+  name?: string
 }
 
-export interface CostModel {
-  readonly applyTerm: Cost
-  readonly builtinTerm: Cost
-  readonly caseTerm: Cost
-  readonly constTerm: Cost
-  readonly constrTerm: Cost
-  readonly delayTerm: Cost
-  readonly forceTerm: Cost
-  readonly lambdaTerm: Cost
-  readonly startupCost: Cost
-  readonly varTerm: Cost
-  readonly builtins: Record<string, (argSizes: number[]) => Cost>
+/**
+ * `DelayedValue` is equivalent to $\langle \texttt{delay}~M~\rho\rangle$ in the *CEK Machine* section of the [Plutus Core spec](https://plutus.cardano.intersectmbo.org/resources/plutus-core-spec.pdf):
+ *
+ *    - `term` is equivalent to $M$
+ *    - `stack` is equivalent to $\rho$
+ *
+ * The optional `name` field is used for debugging.
+ */
+export type DelayedValue = {
+  _tag: "Delayed"
+  term: Term
+  stack: Stack
+  name?: string | undefined
 }
 
-export interface CostTracker {
-  readonly cost: Cost
-  readonly costModel: CostModel
-  readonly breakdown: CostBreakdown
-  incrApplyCost(): void
-  incrBuiltinCost(): void
-  incrCaseCost(): void
-  incrConstCost(): void
-  incrConstrCost(): void
-  incrDelayCost(): void
-  incrForceCost(): void
-  incrLambdaCost(): void
-  incrStartupCost(): void
-  incrVarCost(): void
-  incrArgSizesCost(name: string, argSizes: bigint[]): void
+/**
+ * `LambdaValue` is equivalent to $\langle \texttt{lam}~x~M~\rho\rangle$ in the *CEK Machine* section of the [plutus core spec](https://plutus.cardano.intersectmbo.org/resources/plutus-core-spec.pdf):
+ *
+ *    - `body` is equivalent to $M$
+ *    - `env` is equivalent to $\rho$
+ *    - `argName` is an optional alternative name for $x$, which is useful during debugging
+ *
+ * The optional `name` field is used for debugging.
+ */
+export type LambdaValue = {
+  _tag: "Lambda"
+  body: Term
+  stack: Stack
+  name?: string
+  argName?: string
+}
+
+export type Value = BuiltinValue | ConstValue | ConstrValue | DelayedValue | LambdaValue
+
+export type CallSite = {
+  sourceSpan?: SourceSpan | undefined,
+  description?: string,
+  functionName?: string,
+  arguments?: Value[]
+}
+
+export type Stack = {
+  values: Value[],
+  callSites: CallSite[] // useful for debugging
 }
 
 /**

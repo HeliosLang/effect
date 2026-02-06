@@ -1,6 +1,6 @@
-import { Effect, Encoding, Schema } from "effect"
+import { Effect, Either, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
-import { decodeBytes, DecodeEffect, encodeBytes } from "../Cbor.js"
+import { decodeBytes, DecodeResult, encodeBytes } from "../Cbor.js"
 import { Data } from "../Uplc"
 
 export function isValid(pkh: string): pkh is PubKeyHash {
@@ -24,11 +24,11 @@ export const FromUplcData = Schema.transform(Data.ByteArray, PubKeyHash, {
   encode: (s) => Effect.runSync(Encoding.decodeHex(s))
 })
 
-export const decode = (bytes: Bytes.BytesLike): DecodeEffect<PubKeyHash> =>
+export const decode = (bytes: Bytes.BytesLike): DecodeResult<PubKeyHash> =>
   decodeBytes(bytes).pipe(
-    Effect.map((bytes) => new Uint8Array(bytes)),
-    Effect.map(Encoding.encodeHex),
-    Effect.map(Schema.decodeSync(PubKeyHash))
+    Either.map((bytes) => new Uint8Array(bytes)),
+    Either.map(Encoding.encodeHex),
+    Either.map(Schema.decodeSync(PubKeyHash))
   )
 
 export function encode(pkh: PubKeyHash): number[] {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { runSync, succeed } from "effect/Effect"
+import { Either } from "effect"
+import { runSync } from "effect/Effect"
 import { makeStream, toArray, toHex } from "./internal/Bytes.js"
 import * as Cbor from "./Cbor.js"
 
@@ -39,29 +40,29 @@ describe("Cbor.encodeBool", () => {
 })
 
 describe("Cbor.isBool", () => {
-  it("fails for empty bytes", () => {
-    expect(() => runSync(Cbor.isBool([]))).toThrow()
+  it("returns false for empty bytes", () => {
+    expect(Cbor.isBool([])).toBe(false)
   })
 
   it(`returns true for [${FALSE_CBOR_BYTE}]`, () => {
-    expect(runSync(Cbor.isBool([FALSE_CBOR_BYTE]))).toBe(true)
+    expect(Cbor.isBool([FALSE_CBOR_BYTE])).toBe(true)
   })
 
   it(`returns true for [${TRUE_CBOR_BYTE}]`, () => {
-    expect(runSync(Cbor.isBool([TRUE_CBOR_BYTE]))).toBe(true)
+    expect(Cbor.isBool([TRUE_CBOR_BYTE])).toBe(true)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream([TRUE_CBOR_BYTE])
 
-    expect(runSync(Cbor.isBool(stream))).toBe(true)
+    expect(Cbor.isBool(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not a bool", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isBool(stream))).toBe(false)
+    expect(Cbor.isBool(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
@@ -115,48 +116,48 @@ describe("Cbor.encodeBytes()/Cbor.decodeBytes() roundtrip", () => {
 })
 
 describe("Cbor.isBytes()", () => {
-  it("fails for empty bytes", () => {
-    expect(() => runSync(Cbor.isBytes([]))).toThrow()
+  it("returns false for empty bytes", () => {
+    expect(Cbor.isBytes([])).toBe(false)
   })
 
   it("returns false for [0]", () => {
-    expect(runSync(Cbor.isBytes([0]))).toBe(false)
+    expect(Cbor.isBytes([0])).toBe(false)
   })
 
   it("returns true for #4e4d01000033222220051200120011", () => {
-    expect(runSync(Cbor.isBytes("4e4d01000033222220051200120011"))).toBe(true)
+    expect(Cbor.isBytes("4e4d01000033222220051200120011")).toBe(true)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream("4e4d01000033222220051200120011")
 
-    expect(runSync(Cbor.isBytes(stream))).toBe(true)
+    expect(Cbor.isBytes(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not bytes", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isBytes(stream))).toBe(false)
+    expect(Cbor.isBytes(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
 
 describe("Cbor.isDefBytes()", () => {
-  it("fails for empty bytes", () => {
-    expect(() => runSync(Cbor.isDefBytes([]))).toThrow()
+  it("returns false for empty bytes", () => {
+    expect(Cbor.isDefBytes([])).toBe(false)
   })
 
   it("returns false for [0]", () => {
-    expect(runSync(Cbor.isDefBytes([0]))).toBe(false)
+    expect(Cbor.isDefBytes([0])).toBe(false)
   })
 
   it("returns false for indef bytes", () => {
-    expect(runSync(Cbor.isDefBytes([2 * 32 + 31]))).toBe(false)
+    expect(Cbor.isDefBytes([2 * 32 + 31])).toBe(false)
   })
 
   it("returns true for #4e4d01000033222220051200120011", () => {
-    expect(runSync(Cbor.isDefBytes("4e4d01000033222220051200120011"))).toBe(
+    expect(Cbor.isDefBytes("4e4d01000033222220051200120011")).toBe(
       true
     )
   })
@@ -394,26 +395,26 @@ describe("Cbor.encodeConstr()/Cbor.decodeConstr() tag only roundtrip", () => {
 describe("Cbor.isConstr()", () => {
   it("returns true for #d87982581cbd99a373075d42fe4ac9109515e46303d0940cb9620bf058b87986a9d87980", () => {
     expect(
-      runSync(
+      
         Cbor.isConstr(
           "d87982581cbd99a373075d42fe4ac9109515e46303d0940cb9620bf058b87986a9d87980"
         )
-      )
+      
     ).toBe(true)
   })
 
   tagsTestVector.forEach((t) => {
     it(`returns true for encoded ${t}`, () => {
-      expect(runSync(Cbor.isConstr(Cbor.encodeConstr(t, [])))).toBe(true)
+      expect(Cbor.isConstr(Cbor.encodeConstr(t, []))).toBe(true)
     })
   })
 
   it("returns false for [0]]", () => {
-    expect(runSync(Cbor.isConstr([0]))).toBe(false)
+    expect(Cbor.isConstr([0])).toBe(false)
   })
 
-  it("fails for []]", () => {
-    expect(() => runSync(Cbor.isConstr([])))
+  it("returns false for []]", () => {
+    expect(Cbor.isConstr([])).toBe(false)
   })
 
   it("doesn't change stream pos", () => {
@@ -421,14 +422,14 @@ describe("Cbor.isConstr()", () => {
       "d87982581cbd99a373075d42fe4ac9109515e46303d0940cb9620bf058b87986a9d87980"
     )
 
-    expect(runSync(Cbor.isConstr(stream))).toBe(true)
+    expect(Cbor.isConstr(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not a constr", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isConstr(stream))).toBe(false)
+    expect(Cbor.isConstr(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
@@ -532,10 +533,10 @@ describe("Cbor.encodeFloat16() & Cbor.isFloat<n>()", () => {
     .forEach(([bytes, f]) => {
       it(`encodes ${f} as #${toHex(bytes)}`, () => {
         expect(Cbor.encodeFloat16(f)).toEqual(bytes)
-        expect(runSync(Cbor.isFloat(bytes))).toBe(true)
-        expect(runSync(Cbor.isFloat16(bytes))).toBe(true)
-        expect(runSync(Cbor.isFloat32(bytes))).toBe(false)
-        expect(runSync(Cbor.isFloat64(bytes))).toBe(false)
+        expect(Cbor.isFloat(bytes)).toBe(true)
+        expect(Cbor.isFloat16(bytes)).toBe(true)
+        expect(Cbor.isFloat32(bytes)).toBe(false)
+        expect(Cbor.isFloat64(bytes)).toBe(false)
       })
     })
 })
@@ -547,10 +548,10 @@ describe("Cbor.encodeFloat32() & Cbor.isFloat<n>()", () => {
     .forEach(([bytes, f]) => {
       it(`encodes ${f} as #${toHex(bytes)}`, () => {
         expect(Cbor.encodeFloat32(f)).toEqual(bytes)
-        expect(runSync(Cbor.isFloat(bytes))).toBe(true)
-        expect(runSync(Cbor.isFloat16(bytes))).toBe(false)
-        expect(runSync(Cbor.isFloat32(bytes))).toBe(true)
-        expect(runSync(Cbor.isFloat64(bytes))).toBe(false)
+        expect(Cbor.isFloat(bytes)).toBe(true)
+        expect(Cbor.isFloat16(bytes)).toBe(false)
+        expect(Cbor.isFloat32(bytes)).toBe(true)
+        expect(Cbor.isFloat64(bytes)).toBe(false)
       })
     })
 })
@@ -562,10 +563,10 @@ describe("Cbor.encodeFloat64() & Cbor.isFloat<n>()", () => {
     .forEach(([bytes, f]) => {
       it(`encodes ${f} as #${toHex(bytes)}`, () => {
         expect(Cbor.encodeFloat64(f)).toEqual(bytes)
-        expect(runSync(Cbor.isFloat(bytes))).toBe(true)
-        expect(runSync(Cbor.isFloat16(bytes))).toBe(false)
-        expect(runSync(Cbor.isFloat32(bytes))).toBe(false)
-        expect(runSync(Cbor.isFloat64(bytes))).toBe(true)
+        expect(Cbor.isFloat(bytes)).toBe(true)
+        expect(Cbor.isFloat16(bytes)).toBe(false)
+        expect(Cbor.isFloat32(bytes)).toBe(false)
+        expect(Cbor.isFloat64(bytes)).toBe(true)
       })
     })
 })
@@ -624,35 +625,35 @@ describe("Cbor.encodeInt()", () => {
 describe("Cbor.isInt()", () => {
   intTestVectors.forEach(([, bs]) => {
     it(`returns true for #${toHex(bs)}`, () => {
-      expect(runSync(Cbor.isInt(bs))).toBe(true)
+      expect(Cbor.isInt(bs)).toBe(true)
     })
   })
 
   it("returns false for #6161", () => {
-    expect(runSync(Cbor.isInt([0x61, 0x61]))).toBe(false)
+    expect(Cbor.isInt([0x61, 0x61])).toBe(false)
   })
 
-  it("fails for []", () => {
-    expect(() => runSync(Cbor.isInt([]))).toThrow()
+  it("returns false for []", () => {
+    expect(Cbor.isInt([])).toBe(false)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isInt(stream))).toBe(true)
+    expect(Cbor.isInt(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not an int", () => {
     const stream = makeStream([0x61, 0x61])
 
-    expect(runSync(Cbor.isInt(stream))).toBe(false)
+    expect(Cbor.isInt(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
 
 describe("Cbor.decodeList()", () => {
-  const unusedItemDecoder = () => succeed(0)
+  const unusedItemDecoder = () => Either.right(0)
 
   it("fails for []", () => {
     expect(() => runSync(Cbor.decodeList(unusedItemDecoder)([]))).toThrow()
@@ -830,38 +831,38 @@ describe("Cbor.encodeList()", () => {
 
 describe("Cbor.isList()", () => {
   it("returns true for [0x80]", () => {
-    expect(runSync(Cbor.isList([0x80]))).toBe(true)
+    expect(Cbor.isList([0x80])).toBe(true)
   })
 
   it("returns false for [0x61, 0x61]", () => {
-    expect(runSync(Cbor.isList([0x61, 0x61]))).toBe(false)
+    expect(Cbor.isList([0x61, 0x61])).toBe(false)
   })
 
   it("returns false for [0]", () => {
-    expect(runSync(Cbor.isList([0]))).toBe(false)
+    expect(Cbor.isList([0])).toBe(false)
   })
 
-  it("fails for []", () => {
-    expect(() => runSync(Cbor.isList([]))).toThrow()
+  it("returns false for []", () => {
+    expect(Cbor.isList([])).toBe(false)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream([0x80])
 
-    expect(runSync(Cbor.isList(stream))).toBe(true)
+    expect(Cbor.isList(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not a list", () => {
     const stream = makeStream([0x61, 0x61])
 
-    expect(runSync(Cbor.isList(stream))).toBe(false)
+    expect(Cbor.isList(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
 
 describe("Cbor.decodeMap()", () => {
-  const unusedDecoder = () => succeed(0)
+  const unusedDecoder = () => Either.right(0)
 
   it("fails for []", () => {
     expect(() =>
@@ -982,28 +983,28 @@ describe("Cbor.encodeMap()/Cbor.decodeMap() roundtrip", () => {
 
 describe("Cbor.isMap()", () => {
   it("returns true for [0xa0]", () => {
-    expect(runSync(Cbor.isMap([0xa0]))).toBe(true)
+    expect(Cbor.isMap([0xa0])).toBe(true)
   })
 
   it("returns false for [0]", () => {
-    expect(runSync(Cbor.isMap([0]))).toBe(false)
+    expect(Cbor.isMap([0])).toBe(false)
   })
 
-  it("fails for []", () => {
-    expect(() => runSync(Cbor.isMap([]))).toThrow()
+  it("returns false for []", () => {
+    expect(Cbor.isMap([])).toBe(false)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream([0xa0])
 
-    expect(runSync(Cbor.isMap(stream))).toBe(true)
+    expect(Cbor.isMap(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not a map", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isMap(stream))).toBe(false)
+    expect(Cbor.isMap(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
@@ -1036,24 +1037,24 @@ describe("Cbor.encodeNull()", () => {
 
 describe("Cbor.isNull()", () => {
   it(`returns true for [${NULL_CBOR_BYTE}]`, () => {
-    expect(runSync(Cbor.isNull([NULL_CBOR_BYTE]))).toBe(true)
+    expect(Cbor.isNull([NULL_CBOR_BYTE])).toBe(true)
   })
 
-  it(`fails for empty bytes`, () => {
-    expect(() => runSync(Cbor.isNull([]))).toThrow()
+  it(`returns false for empty bytes`, () => {
+    expect(Cbor.isNull([])).toBe(false)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream([NULL_CBOR_BYTE])
 
-    expect(runSync(Cbor.isNull(stream))).toBe(true)
+    expect(Cbor.isNull(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not null", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isNull(stream))).toBe(false)
+    expect(Cbor.isNull(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
@@ -1176,29 +1177,29 @@ describe("Cbor.encodeObjectSKey()", () => {
 })
 
 describe("Cbor.isObject()", () => {
-  it("fails for []", () => {
-    expect(() => runSync(Cbor.isObject([]))).toThrow()
+  it("returns false for []", () => {
+    expect(Cbor.isObject([])).toBe(false)
   })
 
   it("returns false for [0]", () => {
-    expect(runSync(Cbor.isObject([0]))).toBe(false)
+    expect(Cbor.isObject([0])).toBe(false)
   })
 
   it("returns true for #a201020304", () => {
-    expect(runSync(Cbor.isObject("a201020304"))).toBe(true)
+    expect(Cbor.isObject("a201020304")).toBe(true)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream("a201020304")
 
-    expect(runSync(Cbor.isObject(stream))).toBe(true)
+    expect(Cbor.isObject(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not an object", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isObject(stream))).toBe(false)
+    expect(Cbor.isObject(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
@@ -1323,28 +1324,28 @@ describe("Cbor.encodeString()/Cbor.decodeString() roundtrip", () => {
 
 describe("Cbor.isString()", () => {
   it("returns true for [0x60]", () => {
-    expect(runSync(Cbor.isString([0x60]))).toBe(true)
+    expect(Cbor.isString([0x60])).toBe(true)
   })
 
   it("returns false for [0]", () => {
-    expect(runSync(Cbor.isString([0]))).toBe(false)
+    expect(Cbor.isString([0])).toBe(false)
   })
 
-  it("fails for []", () => {
-    expect(() => runSync(Cbor.isString([]))).toThrow()
+  it("returns false for []", () => {
+    expect(Cbor.isString([])).toBe(false)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream([0x60])
 
-    expect(runSync(Cbor.isString(stream))).toBe(true)
+    expect(Cbor.isString(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not a string", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isString(stream))).toBe(false)
+    expect(Cbor.isString(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })
@@ -1387,16 +1388,16 @@ describe("Cbor.encodeTag()", () => {
 
 describe("Cbor.isTag()", () => {
   it("detects tag in d90102", () => {
-    expect(runSync(Cbor.isTag("d90102"))).toBe(true)
+    expect(Cbor.isTag("d90102")).toBe(true)
   })
 
   it("detects tag in set of signatures", () => {
     expect(
-      runSync(
+      
         Cbor.isTag(
           "d901028182582044f3523cc794ecd0e4cc6aa5d459d4c0b30064d7f7f68dac0eb0653819861b985840ad8a1887d409ca2c5205a9002b104ff77ddee415d730fd85925399e622c6840c2a0c68b72d4bd57979f1d9fec70c6ee7b15a01607da98119dddf05420e274e0a"
         )
-      )
+      
     ).toBe(true)
   })
 })
@@ -1582,29 +1583,29 @@ describe("Cbor.encodeTuple()", () => {
 })
 
 describe("Cbor.isTuple()", () => {
-  it("fails for []", () => {
-    expect(() => runSync(Cbor.isTuple([]))).toThrow()
+  it("returns false for []", () => {
+    expect(Cbor.isTuple([])).toBe(false)
   })
 
   it("returns false for [0]", () => {
-    expect(runSync(Cbor.isTuple([0]))).toBe(false)
+    expect(Cbor.isTuple([0])).toBe(false)
   })
 
   it("returns true for #8301820203820405", () => {
-    expect(runSync(Cbor.isTuple("8301820203820405"))).toBe(true)
+    expect(Cbor.isTuple("8301820203820405")).toBe(true)
   })
 
   it("doesn't change stream pos", () => {
     const stream = makeStream("8301820203820405")
 
-    expect(runSync(Cbor.isTuple(stream))).toBe(true)
+    expect(Cbor.isTuple(stream)).toBe(true)
     expect(stream.pos).toBe(0)
   })
 
   it("doesn't change stream pos if not a tuple", () => {
     const stream = makeStream(Cbor.encodeInt(0))
 
-    expect(runSync(Cbor.isTuple(stream))).toBe(false)
+    expect(Cbor.isTuple(stream)).toBe(false)
     expect(stream.pos).toBe(0)
   })
 })

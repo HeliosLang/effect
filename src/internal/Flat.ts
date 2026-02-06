@@ -1,4 +1,5 @@
 import * as Bits from "./Bits.js"
+import * as ZigZag from "./ZigZag.js"
 
 /**
  * Instantiate a `Flat.Reader` with {@link makeReader}.
@@ -6,7 +7,7 @@ import * as Bits from "./Bits.js"
 export interface Reader {
   isAtEnd(): boolean
   readBits(n: number): number
-  readBool(): boolean
+  readBool(): boolean // TODO: return Either because this can fail
   readBuiltinId(): number
   readBytes(): number[]
   readInt(): bigint
@@ -359,6 +360,19 @@ function rawByteIsLast(b: number): boolean {
   return (b & 0b10000000) == 0
 }
 
+export function intSize(x: bigint | number, signed: boolean = true): number {
+  if (typeof x == "number") {
+    return intSize(BigInt(x))
+  } else {
+    if (signed) {
+      x = ZigZag.toUnsigned(x)
+    }
+
+    const n = x.toString(2).length
+    return 4 + Math.ceil(n / 7) * 8
+  }
+}
+
 /**
  * @param bitWriter
  * @param x
@@ -384,4 +398,8 @@ export function encodeInt(bitWriter: Bits.Writer, x: bigint) {
       bitWriter.writeBits("1" + parts[i])
     }
   }
+}
+
+export function listSize<T>(items: readonly T[], itemSize: (item: T) => number): number {
+  return 1 + items.length + items.reduce((prev, item) => itemSize(item) + prev, 0)
 }

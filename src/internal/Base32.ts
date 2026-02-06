@@ -113,7 +113,7 @@ class Base32Impl implements Base32 {
 
     const rawResult = this.decodeRaw(encoded)
 
-    if (rawResult._tag == "Left") {
+    if (Either.isLeft(rawResult)) {
       return Either.left(rawResult.left)
     }
 
@@ -151,7 +151,7 @@ class Base32Impl implements Base32 {
   ): Either.Either<number[], Encoding.DecodeException> {
     const trimResult = trim(encoded, this.padChar, this.strict)
 
-    if (trimResult._tag == "Left") {
+    if (Either.isLeft(trimResult)) {
       return Either.left(trimResult.left)
     }
 

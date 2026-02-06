@@ -1,4 +1,4 @@
-import { Effect, Encoding } from "effect"
+import { Either, Encoding } from "effect"
 import * as Bytes from "./Bytes.js"
 
 /**
@@ -10,16 +10,14 @@ import * as Bytes from "./Bytes.js"
  */
 export function decode(
   bytes: string | number[] | Uint8Array
-): Effect.Effect<string, Encoding.DecodeException> {
-  return Effect.sync(() =>
-    new TextDecoder("utf-8", { fatal: true }).decode(
+): Either.Either<string, Encoding.DecodeException> {
+  try {
+    return Either.right(new TextDecoder("utf-8", { fatal: true }).decode(
       Bytes.toUint8Array(bytes).buffer
-    )
-  ).pipe(
-    Effect.catchAll(() =>
-      Effect.fail(Bytes.DecodeException(bytes, "Invalid utf-8 encoding"))
-    )
-  )
+    ))
+  } catch(_e) {
+    return Either.left(Bytes.DecodeException(bytes, "Invalid utf-8 encoding"))
+  }
 }
 
 /**

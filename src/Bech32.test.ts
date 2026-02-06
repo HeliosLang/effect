@@ -93,7 +93,7 @@ describe("Bech32.isValid", () => {
 describe("Bech32.decode()/Bech32.encode() roundtrip", () => {
   const roundtrip = (encoded: string): string => {
     const decodeResult = Bech32.decode(encoded)
-    if (decodeResult._tag == "Left") {
+    if (Either.isLeft(decodeResult)) {
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw decodeResult.left
     }

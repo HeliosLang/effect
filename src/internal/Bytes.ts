@@ -1,4 +1,4 @@
-import { Data, Effect, Encoding } from "effect"
+import { Data, Either, Encoding } from "effect"
 import { encode as encodeIntBE } from "./BigEndian"
 
 export type BytesLike = string | number[] | Uint8Array | Stream
@@ -23,7 +23,7 @@ export function toArray(
     return Array.from(bytes)
   } else if (typeof bytes == "string") {
     const result = Encoding.decodeHex(bytes)
-    if (result._tag == "Left") {
+    if (Either.isLeft(result)) {
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw result.left
     }
@@ -64,7 +64,7 @@ export function toUint8Array(
     return bytes
   } else if (typeof bytes == "string") {
     const result = Encoding.decodeHex(bytes)
-    if (result._tag == "Left") {
+    if (Either.isLeft(result)) {
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw result.left
     }
@@ -84,11 +84,11 @@ export interface Stream {
   readonly pos: number
   copy(): Stream
   isAtEnd(): boolean
-  peekOne(): Effect.Effect<number, EndOfStreamError>
-  peekMany(n: number): Effect.Effect<number[], EndOfStreamError>
+  peekOne(): Either.Either<number, EndOfStreamError>
+  peekMany(n: number): Either.Either<number[], EndOfStreamError>
   peekRemaining(): number[]
-  shiftOne(): Effect.Effect<number, EndOfStreamError>
-  shiftMany(n: number): Effect.Effect<number[], EndOfStreamError>
+  shiftOne(): Either.Either<number, EndOfStreamError>
+  shiftMany(n: number): Either.Either<number[], EndOfStreamError>
   shiftRemaining(): number[]
 }
 
@@ -148,11 +148,11 @@ class StreamImpl implements Stream {
    * @returns
    * The byte at the current position
    */
-  peekOne(): Effect.Effect<number, EndOfStreamError> {
+  peekOne(): Either.Either<number, EndOfStreamError> {
     if (this.pos < this.bytes.length) {
-      return Effect.succeed(this.bytes[this.pos])
+      return Either.right(this.bytes[this.pos])
     } else {
-      return Effect.fail(new EndOfStreamError(this))
+      return Either.left(new EndOfStreamError(this))
     }
   }
 
@@ -162,17 +162,17 @@ class StreamImpl implements Stream {
    * @throws
    * If n is negative
    */
-  peekMany(n: number): Effect.Effect<number[], EndOfStreamError> {
+  peekMany(n: number): Either.Either<number[], EndOfStreamError> {
     if (n < 0) {
       throw new RangeError(`Unexpected negative n: ${n}`)
     }
 
     if (this.pos + n <= this.bytes.length) {
-      return Effect.succeed(
+      return Either.right(
         Array.from(this.bytes.slice(this.pos, this.pos + n))
       )
     } else {
-      return Effect.fail(new EndOfStreamError(this))
+      return Either.left(new EndOfStreamError(this))
     }
   }
 
@@ -185,23 +185,23 @@ class StreamImpl implements Stream {
    * @throws
    * If at end
    */
-  shiftOne(): Effect.Effect<number, EndOfStreamError> {
+  shiftOne(): Either.Either<number, EndOfStreamError> {
     if (this.pos < this.bytes.length) {
       const b = this.bytes[this.pos]
       this.pos += 1
-      return Effect.succeed(b)
+      return Either.right(b)
     } else {
-      return Effect.fail(new EndOfStreamError(this))
+      return Either.left(new EndOfStreamError(this))
     }
   }
 
   /**
    * @param n
-   * @returns {number[]}
+   * @returns
    * @throws
    * If n is negative
    */
-  shiftMany(n: number): Effect.Effect<number[], EndOfStreamError> {
+  shiftMany(n: number): Either.Either<number[], EndOfStreamError> {
     if (n < 0) {
       throw new RangeError(`Unexpected negative n: ${n}`)
     }
@@ -209,9 +209,9 @@ class StreamImpl implements Stream {
     if (this.pos + n <= this.bytes.length) {
       const res = Array.from(this.bytes.slice(this.pos, this.pos + n))
       this.pos += n
-      return Effect.succeed(res)
+      return Either.right(res)
     } else {
-      return Effect.fail(new EndOfStreamError(this))
+      return Either.left(new EndOfStreamError(this))
     }
   }
 

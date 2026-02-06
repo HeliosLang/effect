@@ -1,4 +1,4 @@
-import { Effect, Encoding, ParseResult, Schema } from "effect"
+import { Effect, Either, Encoding, ParseResult, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import { decode as decodeUtf8, encode as encodeUtf8 } from "../internal/Utf8.js"
 import * as Cbor from "../Cbor.js"
@@ -146,27 +146,21 @@ export type DataJSON =
  * @param bytes
  * @returns
  */
-export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<Data> =>
-  Effect.gen(function* () {
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Data> => {
     const stream = Bytes.makeStream(bytes)
 
-    if (yield* Cbor.isList(stream)) {
-      const items = yield* Cbor.decodeList(decode)(stream)
-
-      return makeListData(items)
-    } else if (yield* Cbor.isBytes(stream)) {
-      return makeByteArrayData(yield* Cbor.decodeBytes(stream))
-    } else if (yield* Cbor.isMap(stream)) {
-      const entries = yield* Cbor.decodeMap(decode, decode)(stream)
-
-      return makeMapData(entries)
-    } else if (yield* Cbor.isConstr(stream)) {
-      const [tag, fields] = yield* Cbor.decodeConstr(decode)(stream)
-      return makeConstrData(tag, fields)
+    if (Cbor.isList(stream)) {
+      return Cbor.decodeList(decode)(stream).pipe(Either.map(makeListData))
+    } else if (Cbor.isBytes(stream)) {
+      return Cbor.decodeBytes(stream).pipe(Either.map(makeByteArrayData))
+    } else if (Cbor.isMap(stream)) {
+      return Cbor.decodeMap(decode, decode)(stream).pipe(Either.map(makeMapData))
+    } else if (Cbor.isConstr(stream)) {
+      return Cbor.decodeConstr(decode)(stream).pipe(Either.map(([tag, fields]) => makeConstrData(tag, fields)))
     } else {
-      return makeIntData(yield* Cbor.decodeInt(stream))
+      return Cbor.decodeInt(stream).pipe(Either.map(makeIntData))
     }
-  })
+  }
 
 /**
  * Simple recursive CBOR encoder
@@ -198,14 +192,14 @@ export const NODE_MEM_SIZE = 4
  */
 export function memSize(data: Data): number {
   if ("bytes" in data) {
-    return NODE_MEM_SIZE + calcBytesMemSize(data.bytes)
+    return NODE_MEM_SIZE + memSizeOfByteArray(data.bytes)
   } else if ("fields" in data) {
     return data.fields.reduce(
       (prev, field) => prev + memSize(field),
       NODE_MEM_SIZE
     )
   } else if ("int" in data) {
-    return NODE_MEM_SIZE + calcIntMemSize(data.int)
+    return NODE_MEM_SIZE + memSizeOfInt(data.int)
   } else if ("list" in data) {
     return data.list.reduce((prev, item) => prev + memSize(item), NODE_MEM_SIZE)
   } else if ("map" in data) {
@@ -223,7 +217,7 @@ export function memSize(data: Data): number {
  * @param bytes
  * @returns
  */
-export function calcBytesMemSize(
+export function memSizeOfByteArray(
   bytes: string | readonly number[] | Uint8Array
 ): number {
   const n = Bytes.toArray(bytes).length
@@ -240,7 +234,7 @@ export function calcBytesMemSize(
  * @param value
  * @returns
  */
-export function calcIntMemSize(value: bigint) {
+export function memSizeOfInt(value: bigint) {
   if (value == 0n) {
     return 1
   } else {
@@ -752,3 +746,27 @@ export const Enum = <
       }
     }
   )
+
+/**
+ * Simple recursive algorithm
+ * @param d 
+ * @returns 
+ */
+export function toString(d: Data) {
+  if ("bytes" in d) {
+    return `B #${Encoding.encodeHex(d.bytes)}`
+  } else if ("fields" in d) {
+    const parts: string[] = d.fields.map(toString)
+    return `Constr ${d.constructor}{${parts.join(", ")}}`
+  } else if ("int" in d) {
+    return `I ${d.int}`
+  } else if ("list" in d) {
+    const parts: string[] = d.list.map(toString)
+    return `List [${parts.join(", ")}]`
+  } else if ("map" in d) {
+    const parts: string[] = d.map.map(({k, v}) => `(${toString(k)}, ${toString(v)})`)
+    return `Map [${parts.join(", ")}]`
+  } else {
+    throw new Error("unhandled UplcData type")
+  }
+}

@@ -33,7 +33,7 @@ export function decode(
 
   const bytes = PAYLOAD_CODEC.decode(payload.slice(0, payload.length - 6))
 
-  if (bytes._tag == "Left") {
+  if (Either.isLeft(bytes)) {
     return Either.left(bytes.left)
   }
 
