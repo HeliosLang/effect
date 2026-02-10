@@ -15,7 +15,7 @@ export const PubKeyHash = Schema.String.pipe(
 export type PubKeyHash = Schema.Schema.Type<typeof PubKeyHash>
 
 export function make(bytes: Bytes.BytesLike) {
-  return Schema.decode(PubKeyHash)(Bytes.toHex(bytes))
+  return Schema.decodeEither(PubKeyHash)(Bytes.toHex(bytes))
 }
 
 export const FromUplcData = Schema.transform(Data.ByteArray, PubKeyHash, {

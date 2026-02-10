@@ -12,10 +12,12 @@ export function decode(
   bytes: string | number[] | Uint8Array
 ): Either.Either<string, Encoding.DecodeException> {
   try {
-    return Either.right(new TextDecoder("utf-8", { fatal: true }).decode(
-      Bytes.toUint8Array(bytes).buffer
-    ))
-  } catch(_e) {
+    return Either.right(
+      new TextDecoder("utf-8", { fatal: true }).decode(
+        Bytes.toUint8Array(bytes).buffer
+      )
+    )
+  } catch (_e) {
     return Either.left(Bytes.DecodeException(bytes, "Invalid utf-8 encoding"))
   }
 }

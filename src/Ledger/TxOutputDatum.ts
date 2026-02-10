@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Either, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
 import { Data } from "../Uplc"
@@ -13,8 +13,8 @@ export type TxOutputDatum = Schema.Schema.Type<typeof TxOutputDatum>
 
 export const decode = (
   bytes: Bytes.BytesLike
-): Cbor.DecodeEffect<TxOutputDatum> =>
-  Effect.gen(function* () {
+): Cbor.DecodeResult<TxOutputDatum> =>
+  Either.gen(function* () {
     const [type, decodeItem] = yield* Cbor.decodeTagged(bytes)
 
     switch (type) {
@@ -24,10 +24,10 @@ export const decode = (
         return {
           _tag: "Inline",
           data: yield* decodeItem((stream: Bytes.Stream) =>
-            Effect.gen(function* () {
+            Either.gen(function* () {
               const tag = yield* Cbor.decodeTag(stream)
               if (tag != 24n) {
-                return yield* Effect.fail(
+                return yield* Either.left(
                   new Cbor.DecodeError(stream, `expected 24 as tag, got ${tag}`)
                 )
               }
@@ -37,7 +37,7 @@ export const decode = (
           )
         }
       default:
-        return yield* Effect.fail(
+        return yield* Either.left(
           new Cbor.DecodeError(
             Bytes.makeStream(bytes),
             `unhandled TxOutputDatum type ${type}`

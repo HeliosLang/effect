@@ -1,4 +1,4 @@
-import { Effect, Encoding, Option, Schema } from "effect"
+import { Effect, Either, Encoding, Option, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
 import { Data } from "../Uplc"
@@ -31,20 +31,25 @@ export function make(policy: Bytes.BytesLike) {
   const p = Bytes.toHex(policy)
 
   if (p.length == 0) {
-    return Effect.succeed(Option.none())
+    return Either.right(Option.none())
   } else {
-    return ValidatorHash.make(p).pipe(Effect.map(Option.some))
+    return ValidatorHash.make(p).pipe(Either.map(Option.some))
   }
 }
 
 export const decode = (
   bytes: Bytes.BytesLike
-): Cbor.DecodeEffect<MintingPolicy> =>
+): Cbor.DecodeResult<MintingPolicy> =>
   Cbor.decodeBytes(bytes).pipe(
-    Effect.flatMap(make),
-    Effect.catchTag(
-      "ParseError",
-      (e) => new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+    Either.flatMap(make),
+    Either.mapLeft(
+      (e) => {
+        if (e._tag == "ParseError") {
+          return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+        } else {
+          return e
+        }
+      }
     )
   )
 

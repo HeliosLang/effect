@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Either, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
 import * as TxOutput from "./TxOutput.js"
@@ -11,37 +11,36 @@ export const UTxO = Schema.Struct({
 
 export type UTxO = Schema.Schema.Type<typeof UTxO>
 
-export function make(
-  ref: UTxORef.UTxORef,
-  output: TxOutput.TxOutput
-): UTxO {
+export function make(ref: UTxORef.UTxORef, output: TxOutput.TxOutput): UTxO {
   return {
     ref,
     output
   }
 }
 
-export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<UTxO | UTxORef.UTxORef> =>
-  Effect.gen(function* () {
+export const decode = (
+  bytes: Bytes.BytesLike
+): Cbor.DecodeResult<UTxO | UTxORef.UTxORef> =>
+  Either.gen(function* () {
     const stream = Bytes.makeStream(bytes)
 
-    if (yield* (yield* Cbor.decodeTupleLazy(stream.copy()))(Cbor.isBytes)) {
+    if ((yield* Cbor.decodeTupleLazy(stream.copy()))((bytes) => Either.right(Cbor.isBytes(bytes)))) {
       return yield* UTxORef.decode(stream)
     } else if (
-      yield* (yield* Cbor.decodeTupleLazy(stream.copy()))(Cbor.isTuple)
+      (yield* Cbor.decodeTupleLazy(stream.copy()))((bytes) => Either.right(Cbor.isTuple(bytes)))
     ) {
       return yield* decodeFull(stream)
     } else {
-      return yield* Effect.fail(
+      return yield* Either.left(
         new Cbor.DecodeError(stream, "unhandled UTxO encoding")
       )
     }
   })
 
-export const decodeFull = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<UTxO> => Cbor.decodeTuple([
-      UTxORef.decode,
-      TxOutput.decode
-    ])(bytes).pipe(Effect.map(([id, output]) => make(id, output)))
+export const decodeFull = (bytes: Bytes.BytesLike): Cbor.DecodeResult<UTxO> =>
+  Cbor.decodeTuple([UTxORef.decode, TxOutput.decode])(bytes).pipe(
+    Either.map(([id, output]) => make(id, output))
+  )
 
 export function encode(txInput: UTxO, full: boolean = false) {
   if (full) {

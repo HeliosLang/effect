@@ -1,6 +1,6 @@
-import { Effect, Encoding, Schema } from "effect"
+import { Either, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
-import { decodeBytes, DecodeEffect, encodeBytes } from "../Cbor.js"
+import { decodeBytes, DecodeResult, encodeBytes } from "../Cbor.js"
 import { Data } from "../Uplc"
 
 export function isValid(vh: string): boolean {
@@ -15,7 +15,7 @@ export const ValidatorHash = Schema.String.pipe(
 export type ValidatorHash = Schema.Schema.Type<typeof ValidatorHash>
 
 export function make(bytes: Bytes.BytesLike) {
-  return Schema.decode(ValidatorHash)(Bytes.toHex(bytes))
+  return Schema.decodeEither(ValidatorHash)(Bytes.toHex(bytes))
 }
 
 export const FromUplcData = Schema.transform(Data.ByteArray, ValidatorHash, {
@@ -24,11 +24,11 @@ export const FromUplcData = Schema.transform(Data.ByteArray, ValidatorHash, {
   encode: Bytes.toUint8Array
 })
 
-export const decode = (bytes: Bytes.BytesLike): DecodeEffect<ValidatorHash> =>
+export const decode = (bytes: Bytes.BytesLike): DecodeResult<ValidatorHash> =>
   decodeBytes(bytes).pipe(
-    Effect.map((bytes) => new Uint8Array(bytes)),
-    Effect.map(Encoding.encodeHex),
-    Effect.map(Schema.decodeSync(ValidatorHash))
+    Either.map((bytes) => new Uint8Array(bytes)),
+    Either.map(Encoding.encodeHex),
+    Either.map(Schema.decodeSync(ValidatorHash))
   )
 
 export function encode(vh: ValidatorHash): number[] {

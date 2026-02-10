@@ -1,20 +1,20 @@
-import { Effect, Either, Encoding, Schema } from "effect";
+import { Effect, Either, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import { decodeBytes, DecodeResult, encodeBytes } from "../Cbor.js"
 import { Data } from "../Uplc"
 
 export function isValid(pk: string): pk is PubKey {
-    return /^[0-9a-fA-F]+$/.test(pk) && pk.length == 64
+  return /^[0-9a-fA-F]+$/.test(pk) && pk.length == 64
 }
 export const PubKey = Schema.String.pipe(
-    Schema.filter((pk: string) => isValid(pk) || "Invalid Cardano PubKey"),
-    Schema.brand("PubKey")
+  Schema.filter((pk: string) => isValid(pk) || "Invalid Cardano PubKey"),
+  Schema.brand("PubKey")
 )
 
 export type PubKey = Schema.Schema.Type<typeof PubKey>
 
 export function make(bytes: Bytes.BytesLike) {
-    return Schema.decode(PubKey)(Bytes.toHex(bytes))
+  return Schema.decode(PubKey)(Bytes.toHex(bytes))
 }
 
 export const FromUplcData = Schema.transform(Data.ByteArray, PubKey, {

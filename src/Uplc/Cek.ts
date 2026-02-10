@@ -22,7 +22,7 @@ export type BuiltinValue = {
   id: number
   forceCount: number
   args: Value[]
-  name: string 
+  name: string
 }
 
 /**
@@ -81,17 +81,22 @@ export type LambdaValue = {
   argName?: string
 }
 
-export type Value = BuiltinValue | ConstValue | ConstrValue | DelayedValue | LambdaValue
+export type Value =
+  | BuiltinValue
+  | ConstValue
+  | ConstrValue
+  | DelayedValue
+  | LambdaValue
 
 export type CallSite = {
-  sourceSpan?: SourceSpan | undefined,
-  description?: string,
-  functionName?: string,
+  sourceSpan?: SourceSpan | undefined
+  description?: string
+  functionName?: string
   arguments?: Value[]
 }
 
 export type Stack = {
-  values: Value[],
+  values: Value[]
   callSites: CallSite[] // useful for debugging
 }
 

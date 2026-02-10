@@ -10,11 +10,7 @@ export function isValid(assetClass: string): assetClass is AssetClass {
   if (n == 0) {
     return true
   } else {
-    return (
-      /^[0-9a-fA-F]+$/.test(assetClass) &&
-      n < 120 &&
-      (n >= 56 && n % 2 == 0)
-    )
+    return /^[0-9a-fA-F]+$/.test(assetClass) && n < 120 && n >= 56 && n % 2 == 0
   }
 }
 
@@ -42,7 +38,8 @@ export function make(
   if (policy._tag == "None") {
     return ADA
   } else {
-    return (policy.value + Encoding.encodeHex(Bytes.toUint8Array(tokenName))) as AssetClass
+    return (policy.value +
+      Encoding.encodeHex(Bytes.toUint8Array(tokenName))) as AssetClass
   }
 }
 

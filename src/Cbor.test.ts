@@ -157,9 +157,7 @@ describe("Cbor.isDefBytes()", () => {
   })
 
   it("returns true for #4e4d01000033222220051200120011", () => {
-    expect(Cbor.isDefBytes("4e4d01000033222220051200120011")).toBe(
-      true
-    )
+    expect(Cbor.isDefBytes("4e4d01000033222220051200120011")).toBe(true)
   })
 })
 
@@ -395,11 +393,9 @@ describe("Cbor.encodeConstr()/Cbor.decodeConstr() tag only roundtrip", () => {
 describe("Cbor.isConstr()", () => {
   it("returns true for #d87982581cbd99a373075d42fe4ac9109515e46303d0940cb9620bf058b87986a9d87980", () => {
     expect(
-      
-        Cbor.isConstr(
-          "d87982581cbd99a373075d42fe4ac9109515e46303d0940cb9620bf058b87986a9d87980"
-        )
-      
+      Cbor.isConstr(
+        "d87982581cbd99a373075d42fe4ac9109515e46303d0940cb9620bf058b87986a9d87980"
+      )
     ).toBe(true)
   })
 
@@ -1393,11 +1389,9 @@ describe("Cbor.isTag()", () => {
 
   it("detects tag in set of signatures", () => {
     expect(
-      
-        Cbor.isTag(
-          "d901028182582044f3523cc794ecd0e4cc6aa5d459d4c0b30064d7f7f68dac0eb0653819861b985840ad8a1887d409ca2c5205a9002b104ff77ddee415d730fd85925399e622c6840c2a0c68b72d4bd57979f1d9fec70c6ee7b15a01607da98119dddf05420e274e0a"
-        )
-      
+      Cbor.isTag(
+        "d901028182582044f3523cc794ecd0e4cc6aa5d459d4c0b30064d7f7f68dac0eb0653819861b985840ad8a1887d409ca2c5205a9002b104ff77ddee415d730fd85925399e622c6840c2a0c68b72d4bd57979f1d9fec70c6ee7b15a01607da98119dddf05420e274e0a"
+      )
     ).toBe(true)
   })
 })

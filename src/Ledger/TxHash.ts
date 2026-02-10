@@ -1,4 +1,4 @@
-import { Effect, Encoding, Schema } from "effect"
+import { Either, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
 import { Data } from "../Uplc/index.js"
@@ -27,15 +27,20 @@ export const FromUplcData = Schema.transform(
 )
 
 export function make(txId: Bytes.BytesLike) {
-  return Schema.decode(TxHash)(Bytes.toHex(txId))
+  return Schema.decodeEither(TxHash)(Bytes.toHex(txId))
 }
 
-export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxHash> =>
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxHash> =>
   Cbor.decodeBytes(bytes).pipe(
-    Effect.flatMap(make),
-    Effect.catchTag(
-      "ParseError",
-      (e) => new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+    Either.flatMap(make),
+    Either.mapLeft(
+      (e) => {
+        if (e._tag == "ParseError") {
+          return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+        } else {
+          return e
+        }
+      }
     )
   )
 

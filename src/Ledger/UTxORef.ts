@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Either, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
 import * as Uplc from "../Uplc/index.js"
@@ -58,9 +58,9 @@ export const FromUplcData = Schema.transform(
   }
 )
 
-export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<UTxORef> =>
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<UTxORef> =>
   Cbor.decodeTuple([TxHash.decode, Cbor.decodeInt])(bytes).pipe(
-    Effect.map(([txId, utxoIdx]) => make(txId, utxoIdx))
+    Either.map(([txId, utxoIdx]) => make(txId, utxoIdx))
   )
 
 export function encode(ref: UTxORef): number[] {

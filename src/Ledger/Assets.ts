@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Effect, Either, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
 import { Data } from "../Uplc"
@@ -81,11 +81,11 @@ function nestedRecords(assets: Assets): Record<string, Record<string, bigint>> {
   return outer
 }
 
-export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<Assets> =>
-  Effect.gen(function* () {
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Assets> =>
+  Either.gen(function* () {
     const stream = Bytes.makeStream(bytes)
 
-    if (yield* Cbor.isTuple(bytes)) {
+    if (Cbor.isTuple(bytes)) {
       const [lovelace, otherAssets] = yield* Cbor.decodeTuple([
         Cbor.decodeInt,
         Cbor.decodeMap(
@@ -102,10 +102,10 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<Assets> =>
 
       for (const [policy, inner] of otherAssets) {
         if (policy._tag == "None") {
-          return yield* new Cbor.DecodeError(
+          return yield* Either.left(new Cbor.DecodeError(
             stream,
             "unexpected ADA assetclass in encoded non-ADA assets"
-          )
+          ))
         }
 
         for (const [tokenName, quantity] of inner) {

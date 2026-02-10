@@ -400,6 +400,11 @@ export function encodeInt(bitWriter: Bits.Writer, x: bigint) {
   }
 }
 
-export function listSize<T>(items: readonly T[], itemSize: (item: T) => number): number {
-  return 1 + items.length + items.reduce((prev, item) => itemSize(item) + prev, 0)
+export function listSize<T>(
+  items: readonly T[],
+  itemSize: (item: T) => number
+): number {
+  return (
+    1 + items.length + items.reduce((prev, item) => itemSize(item) + prev, 0)
+  )
 }

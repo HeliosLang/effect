@@ -1,4 +1,4 @@
-import { Effect, Option, ParseResult, Schema } from "effect"
+import { Effect, Either, Option, ParseResult, Schema } from "effect"
 import * as Bech32 from "../Bech32.js"
 import * as Cbor from "../Cbor.js"
 import * as Bytes from "../internal/Bytes.js"
@@ -118,12 +118,12 @@ function toShelleyBytes(
 }
 
 const decodeInternal = (bytes: Bytes.BytesLike) =>
-  Effect.gen(function* () {
+  Either.gen(function* () {
     if (typeof bytes == "string" && bytes.startsWith("addr")) {
       bytes = (yield* Bech32.decode(bytes)).bytes
     }
 
-    const innerBytes = (yield* Cbor.isBytes(bytes))
+    const innerBytes = Cbor.isBytes(bytes)
       ? yield* Cbor.decodeBytes(bytes)
       : Bytes.toArray(bytes)
 
@@ -197,7 +197,7 @@ const decodeInternal = (bytes: Bytes.BytesLike) =>
           )
         }
       default:
-        return yield* Effect.fail(
+        return yield* Either.left(
           new Cbor.DecodeError(
             Bytes.makeStream(bytes),
             `invalid Shelley Address header ${head}`
@@ -206,22 +206,24 @@ const decodeInternal = (bytes: Bytes.BytesLike) =>
     }
   })
 
-export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<Address> =>
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Address> =>
   decodeInternal(bytes).pipe(
-    Effect.map(({ isMainnet, spendingCredential, stakingCredential }) =>
+    Either.map(({ isMainnet, spendingCredential, stakingCredential }) =>
       make(isMainnet, spendingCredential, stakingCredential)
     ),
-    Effect.catchTag(
-      "ParseError",
-      (e) => new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
-    ),
-    Effect.catchTag(
-      "DecodeException",
-      (e) =>
-        new Cbor.DecodeError(
-          Bytes.makeStream(bytes),
-          `bech32 decoding failed (${e.message})`
-        )
+    Either.mapLeft(
+      (e) => {
+        if (e._tag == "ParseError") {
+          return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+        } else if (e._tag == "DecodeException") {
+          return new Cbor.DecodeError(
+            Bytes.makeStream(bytes),
+            `bech32 decoding failed (${e.message})`
+          )
+        } else {
+          return e
+        }
+      }
     )
   )
 

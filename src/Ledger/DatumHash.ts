@@ -1,6 +1,6 @@
-import { Effect, Encoding, Schema } from "effect"
+import { Either, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
-import { decodeBytes, DecodeEffect, encodeBytes } from "../Cbor.js"
+import { decodeBytes, DecodeResult, encodeBytes } from "../Cbor.js"
 import { Data } from "../Uplc"
 
 export function isValid(dh: string): boolean {
@@ -15,7 +15,7 @@ export const DatumHash = Schema.String.pipe(
 export type DatumHash = Schema.Schema.Type<typeof DatumHash>
 
 export function make(bytes: Bytes.BytesLike) {
-  return Schema.decode(DatumHash)(Bytes.toHex(bytes))
+  return Schema.decodeEither(DatumHash)(Bytes.toHex(bytes))
 }
 
 export const FromUplcData = Schema.transform(Data.ByteArray, DatumHash, {
@@ -24,11 +24,11 @@ export const FromUplcData = Schema.transform(Data.ByteArray, DatumHash, {
   encode: Bytes.toUint8Array
 })
 
-export const decode = (bytes: Bytes.BytesLike): DecodeEffect<DatumHash> =>
+export const decode = (bytes: Bytes.BytesLike): DecodeResult<DatumHash> =>
   decodeBytes(bytes).pipe(
-    Effect.map((bytes) => new Uint8Array(bytes)),
-    Effect.map(Encoding.encodeHex),
-    Effect.map(Schema.decodeSync(DatumHash))
+    Either.map((bytes) => new Uint8Array(bytes)),
+    Either.map(Encoding.encodeHex),
+    Either.map(Schema.decodeSync(DatumHash))
   )
 
 export function encode(dh: DatumHash): number[] {

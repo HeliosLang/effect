@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Either, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
 import * as Address from "./Address.js"
@@ -24,9 +24,11 @@ export const TxOutput = Schema.Struct({
   assets: Assets.Assets,
   datum: Schema.optional(TxOutputDatum.TxOutputDatum),
   refScript: Schema.optional(Schema.Uint8ArrayFromSelf),
-  encodingConfig: Schema.optional(Schema.Struct({
-    strictBabbage: Schema.optional(Schema.Boolean)
-  }))
+  encodingConfig: Schema.optional(
+    Schema.Struct({
+      strictBabbage: Schema.optional(Schema.Boolean)
+    })
+  )
 })
 
 export type TxOutput = Schema.Schema.Type<typeof TxOutput>
@@ -53,10 +55,10 @@ export function make({
   }
 }
 
-export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxOutput> =>
-  Effect.gen(function* () {
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
+  Either.gen(function* () {
     const stream = Bytes.makeStream(bytes)
-    if (yield* Cbor.isObject(bytes)) {
+    if (Cbor.isObject(bytes)) {
       const {
         0: address,
         1: assets,
@@ -66,13 +68,13 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxOutput> =>
         0: Address.decode,
         1: Assets.decode,
         2: TxOutputDatum.decode,
-        3: (stream): Cbor.DecodeEffect<number[]> =>
-          Effect.gen(function* () {
+        3: (stream): Cbor.DecodeResult<number[]> =>
+          Either.gen(function* () {
             if ((yield* Cbor.decodeTag(stream)) != 24n) {
-              return yield* new Cbor.DecodeError(
+              return yield* Either.left(new Cbor.DecodeError(
                 stream,
                 "unexpected reference script tag"
-              )
+              ))
             }
 
             return yield* Cbor.decodeBytes(stream)
@@ -80,11 +82,11 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxOutput> =>
       })(stream)
 
       if (!address) {
-        return yield* new Cbor.DecodeError(stream, "address field missing")
+        return yield* Either.left(new Cbor.DecodeError(stream, "address field missing"))
       }
 
       if (!assets) {
-        return yield* new Cbor.DecodeError(stream, "assets field missing")
+        return yield* Either.left(new Cbor.DecodeError(stream, "assets field missing"))
       }
 
       return make({
@@ -94,7 +96,7 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxOutput> =>
         ...(refScript ? { refScript: new Uint8Array(refScript) } : {}),
         encodingConfig: { strictBabbage: true }
       })
-    } else if (yield* Cbor.isTuple(bytes)) {
+    } else if (Cbor.isTuple(bytes)) {
       const [address, assets, datumHash] = yield* Cbor.decodeTuple(
         [Address.decode, Assets.decode],
         [DatumHash.decode]
@@ -109,7 +111,7 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeEffect<TxOutput> =>
         }
       })
     } else {
-      return yield* new Cbor.DecodeError(stream, "unexpected TxOutput encoding")
+      return yield* Either.left(new Cbor.DecodeError(stream, "unexpected TxOutput encoding"))
     }
   })
 
@@ -117,7 +119,8 @@ export function encode(txOutput: TxOutput): number[] {
   if (
     (!txOutput.datum || txOutput.datum._tag == "Hash") &&
     !txOutput.refScript &&
-    (!txOutput.encodingConfig || txOutput.encodingConfig.strictBabbage == null ||
+    (!txOutput.encodingConfig ||
+      txOutput.encodingConfig.strictBabbage == null ||
       !txOutput.encodingConfig.strictBabbage)
   ) {
     // this is needed to match eternl wallet (de)serialization (annoyingly eternl deserializes the tx and then signs its own serialization)

@@ -17,6 +17,7 @@ export type DecodeResult<T> = Either.Either<
   T,
   Bytes.EndOfStreamError | DecodeError
 >
+
 export type PeekResult<T> = Either.Either<T, Bytes.EndOfStreamError>
 
 const FALSE_BYTE = 244 // m = 7, n = 20
@@ -37,21 +38,22 @@ export class DecodeError extends Data.TaggedError("Cbor.DecodeError")<{
  * @returns
  */
 export const decodeBool = (bytes: Bytes.BytesLike): DecodeResult<boolean> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return stream.shiftOne().pipe(Either.flatMap((b) => {
+  return stream.shiftOne().pipe(
+    Either.flatMap((b) => {
       if (b == TRUE_BYTE) {
         return Either.right(true)
       } else if (b == FALSE_BYTE) {
         return Either.right(false)
       } else {
-        return Either.left(new DecodeError(
-          stream,
-          "unexpected non-boolean cbor object"
-        ))
+        return Either.left(
+          new DecodeError(stream, "unexpected non-boolean cbor object")
+        )
       }
-    }))
-  }
+    })
+  )
+}
 
 /**
  * Encodes a `boolean` into its CBOR representation.
@@ -80,68 +82,45 @@ export const isBool = (bytes: Bytes.BytesLike): boolean => {
   return head.right == FALSE_BYTE || head.right == TRUE_BYTE
 }
 
-const decodeIndefBytes = (stream: Bytes.Stream): DecodeResult<number[]> => {
-  const first = stream.shiftOne()
+const decodeIndefBytes = (stream: Bytes.Stream): DecodeResult<number[]> =>
+  Either.gen(function* () {
+    yield* stream.shiftOne()
 
-  if (Either.isLeft(first)) {
-    return Either.left(first.left)
-  }
+    // multiple chunks
 
-  // multiple chunks
+    let res: number[] = []
 
-  let res: number[] = []
+    let next = yield* stream.peekOne()
 
-  const maybeNext = stream.peekOne()
+    while (next != 255) {
+      const [, n] = yield* decodeDefHead(stream)
 
-  if (Either.isLeft(maybeNext)) {
-    return Either.left(maybeNext.left)
-  }
-
-  let next = maybeNext
-
-  while (next.right != 255) {
-    const nextHead = decodeDefHead(stream)
-
-    if (Either.isLeft(nextHead)) {
-      return Either.left(nextHead.left)
-    }
-
-    const [,n] = nextHead.right
-    if (n > 64n) {
-      return Either.left(new DecodeError(stream, "Bytearray chunk too large"))
-    }
-
-    const chunk = stream.shiftMany(Number(n))
-
-    if (Either.isLeft(chunk)) {
-      return Either.left(chunk.left)
-    }
-
-    res = res.concat(chunk.right)
-    
-    const maybeNext = stream.peekOne()
-
-    if (Either.isLeft(maybeNext)) {
-      return Either.left(maybeNext.left)
-    }
-
-    next = maybeNext
-  }
-
-  // check next byte before returning result
-  return stream.shiftOne().pipe(
-    Either.flatMap((last) => {
-      if (last != 255) {
-        return Either.left(new DecodeError(stream, "invalid indef bytes termination byte"))
+      if (n > 64n) {
+        return yield* Either.left(
+          new DecodeError(stream, "Bytearray chunk too large")
+        )
       }
 
-      return Either.right(res)
-    })
-  )
-}
+      const chunk = yield* stream.shiftMany(Number(n))
 
-const decodeDefBytes = (stream: Bytes.Stream): DecodeResult<number[]> => {
-  return decodeDefHead(stream).pipe(
+      res = res.concat(chunk)
+
+      next = yield* stream.peekOne()
+    }
+
+    const last = yield* stream.shiftOne()
+
+    if (last != 255) {
+      return yield* Either.left(
+        new DecodeError(stream, "invalid indef bytes termination byte")
+      )
+    }
+
+    return res
+  })
+
+const decodeDefBytes = (stream: Bytes.Stream): DecodeResult<number[]> =>
+  decodeDefHead(stream).pipe(
     Either.flatMap(([m, n]): DecodeResult<number[]> => {
       if (m != 2) {
         return Either.left(new DecodeError(stream, "Invalid def bytes"))
@@ -150,7 +129,6 @@ const decodeDefBytes = (stream: Bytes.Stream): DecodeResult<number[]> => {
       return stream.shiftMany(Number(n))
     })
   )
-}
 
 /**
  * Unwraps a CBOR encoded list of bytes
@@ -159,14 +137,14 @@ const decodeDefBytes = (stream: Bytes.Stream): DecodeResult<number[]> => {
  * @returns byteArray
  */
 export const decodeBytes = (bytes: Bytes.BytesLike): DecodeResult<number[]> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    if (isIndefBytes(bytes)) {
-      return decodeIndefBytes(stream)
-    } else {
-      return decodeDefBytes(stream)
-    }
+  if (isIndefBytes(bytes)) {
+    return decodeIndefBytes(stream)
+  } else {
+    return decodeDefBytes(stream)
   }
+}
 
 /**
  * Wraps a list of bytes using CBOR. Optionally splits the bytes into chunks.
@@ -220,22 +198,22 @@ export const isBytes = (bytes: Bytes.BytesLike): boolean => {
  * @returns
  */
 export const isDefBytes = (bytes: Bytes.BytesLike): boolean => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    const m = peekMajorType(stream)
+  const m = peekMajorType(stream)
 
-    if (Either.isLeft(m)) {
-      return false
-    }
-
-    const n = stream.peekOne()
-
-    if (Either.isLeft(n)) {
-      return false
-    }
-
-    return m.right == 2 && n.right != 2 * 32 + 31
+  if (Either.isLeft(m)) {
+    return false
   }
+
+  const n = stream.peekOne()
+
+  if (Either.isLeft(n)) {
+    return false
+  }
+
+  return m.right == 2 && n.right != 2 * 32 + 31
+}
 
 /**
  * @param bytes
@@ -248,7 +226,7 @@ export const isIndefBytes = (bytes: Bytes.BytesLike): boolean => {
     return false
   }
 
-  return head.right == 2*32+31
+  return head.right == 2 * 32 + 31
 }
 
 /**
@@ -287,39 +265,43 @@ export const decodeConstr =
           ? T[]
           : never
     ]
-  > => Either.gen(function* () {
+  > =>
+    Either.gen(function* () {
       const stream = Bytes.makeStream(bytes)
 
       const tag = yield* decodeConstrTag(stream)
 
       const res: any[] = yield* decodeList(
-        (itemStream: Bytes.Stream, i: number) =>
-          Either.gen(function* () {
-            if (Array.isArray(fieldDecoder)) {
-              const decoder: Decoder<any> | undefined = fieldDecoder[i]
+        (itemStream: Bytes.Stream, i: number) => {
+          if (Array.isArray(fieldDecoder)) {
+            const decoder: Decoder<any> | undefined = fieldDecoder[i]
 
-              if (decoder === undefined) {
-                return yield* Either.left(new DecodeError(
+            if (decoder === undefined) {
+              return Either.left(
+                new DecodeError(
                   stream,
                   `expected ${fieldDecoder.length} fields, got more than ${i}`
-                ))
-              }
-
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-              return yield* decoder(itemStream)
-            } else {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-              return yield* fieldDecoder(itemStream)
+                )
+              )
             }
-          })
+
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return decoder(itemStream)
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return fieldDecoder(itemStream)
+          }
+        }
       )(stream)
 
       if (Array.isArray(fieldDecoder)) {
         if (res.length < fieldDecoder.length) {
-          return yield* Either.left(new DecodeError(
-            stream,
-            `expected ${fieldDecoder.length} fields, only got ${res.length}`
-          ))
+          return yield* Either.left(
+            new DecodeError(
+              stream,
+              `expected ${fieldDecoder.length} fields, only got ${res.length}`
+            )
+          )
         }
       }
 
@@ -344,74 +326,73 @@ export const decodeConstr =
 export const decodeConstrLazy = (
   bytes: Bytes.BytesLike
 ): DecodeResult<[number, <T>(itemDecoder: Decoder<T>) => DecodeResult<T>]> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return Either.zipWith(decodeConstrTag(stream), decodeListLazy(bytes), (tag, decodeField) => [tag, decodeField] as [number, any])
-  }
+  return Either.zipWith(
+    decodeConstrTag(stream),
+    decodeListLazy(bytes),
+    (tag, decodeField) => [tag, decodeField] as [number, any]
+  )
+}
 
 /**
  * @param bytes
  * @returns
  */
 const decodeConstrTag = (bytes: Bytes.BytesLike): DecodeResult<number> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    // constr
-    const head = decodeDefHead(stream)
-    
-    if (Either.isLeft(head)) {
-      return Either.left(head.left)
-    }
+  // constr
+  const head = decodeDefHead(stream)
 
-    const [m, n] = head.right
-
-    if (m != 6) {
-      return Either.left(new DecodeError(stream, "Unexpected constr tag head"))
-    }
-
-    if (n < 102n) {
-      return Either.left(new DecodeError(
-        stream,
-        `unexpected encoded constr tag ${n}`
-      ))
-    } else if (n == 102n) {
-      const check = decodeDefHead(stream)
-
-      if (Either.isLeft(check)) {
-        return Either.left(check.left)
-      }
-
-      const [mCheck, nCheck] = check.right
-
-      if (mCheck != 4 || nCheck != 2n) {
-        return Either.left(new DecodeError(
-          stream,
-          "Unexpected constr tag nested head"
-        ))
-      }
-
-      return decodeInt(stream).pipe(Either.map(Number))
-    } else if (n < 121n) {
-      return Either.left(new DecodeError(
-        stream,
-        `unexpected encoded constr tag ${n}`
-      ))
-    } else if (n <= 127n) {
-      return Either.right(Number(n - 121n))
-    } else if (n < 1280n) {
-      return Either.left(new DecodeError(
-        stream,
-        `unexpected encoded constr tag ${n}`
-      ))
-    } else if (n <= 1400n) {
-      return Either.right(Number(n - 1280n + 7n))
-    } else {
-      return Either.left(new DecodeError(
-        stream,
-        `unexpected encoded constr tag ${n}`
-      ))
-    }
+  if (Either.isLeft(head)) {
+    return Either.left(head.left)
   }
+
+  const [m, n] = head.right
+
+  if (m != 6) {
+    return Either.left(new DecodeError(stream, "Unexpected constr tag head"))
+  }
+
+  if (n < 102n) {
+    return Either.left(
+      new DecodeError(stream, `unexpected encoded constr tag ${n}`)
+    )
+  } else if (n == 102n) {
+    const check = decodeDefHead(stream)
+
+    if (Either.isLeft(check)) {
+      return Either.left(check.left)
+    }
+
+    const [mCheck, nCheck] = check.right
+
+    if (mCheck != 4 || nCheck != 2n) {
+      return Either.left(
+        new DecodeError(stream, "Unexpected constr tag nested head")
+      )
+    }
+
+    return decodeInt(stream).pipe(Either.map(Number))
+  } else if (n < 121n) {
+    return Either.left(
+      new DecodeError(stream, `unexpected encoded constr tag ${n}`)
+    )
+  } else if (n <= 127n) {
+    return Either.right(Number(n - 121n))
+  } else if (n < 1280n) {
+    return Either.left(
+      new DecodeError(stream, `unexpected encoded constr tag ${n}`)
+    )
+  } else if (n <= 1400n) {
+    return Either.right(Number(n - 1280n + 7n))
+  } else {
+    return Either.left(
+      new DecodeError(stream, `unexpected encoded constr tag ${n}`)
+    )
+  }
+}
 
 /**
  * Note: internally the indef list format is used if the number of fields is > 0, if the number of fields is 0 the def list format is used
@@ -464,7 +445,7 @@ export const isConstr = (bytes: Bytes.BytesLike): boolean => {
   if (m != 6) {
     return false
   }
-  
+
   return n == 102n || (n >= 121n && n <= 127n) || (n >= 1280n && n <= 1400n)
 }
 
@@ -472,35 +453,45 @@ const FLOAT16_HEAD = 249
 const FLOAT32_HEAD = 250
 const FLOAT64_HEAD = 251
 
-const decodeFloat16Body = (stream: Bytes.Stream): DecodeResult<number> => stream.shiftMany(2).pipe(
-  Either.flatMap(Float.decodeFloat16),
-  Either.mapLeft((e) => {
-    return e._tag == "DecodeException" ? new DecodeError(stream, `failed to decode float16 (${e.message})`) : e
-  })
-)
+const decodeFloat16Body = (stream: Bytes.Stream): DecodeResult<number> =>
+  stream.shiftMany(2).pipe(
+    Either.flatMap(Float.decodeFloat16),
+    Either.mapLeft((e) => {
+      return e._tag == "DecodeException"
+        ? new DecodeError(stream, `failed to decode float16 (${e.message})`)
+        : e
+    })
+  )
 
-const decodeFloat32Body = (stream: Bytes.Stream): DecodeResult<number> => stream.shiftMany(4).pipe(
-  Either.flatMap(Float.decodeFloat32),
-  Either.mapLeft((e) => {
-    return e._tag == "DecodeException" ? new DecodeError(stream, `failed to decode float32 (${e.message})`) : e
-  })
-)
+const decodeFloat32Body = (stream: Bytes.Stream): DecodeResult<number> =>
+  stream.shiftMany(4).pipe(
+    Either.flatMap(Float.decodeFloat32),
+    Either.mapLeft((e) => {
+      return e._tag == "DecodeException"
+        ? new DecodeError(stream, `failed to decode float32 (${e.message})`)
+        : e
+    })
+  )
 
-const decodeFloat64Body = (stream: Bytes.Stream): DecodeResult<number> => stream.shiftMany(8).pipe(
-  Either.flatMap(Float.decodeFloat64),
-  Either.mapLeft((e) => {
-    return e._tag == "DecodeException" ? new DecodeError(stream, `failed to decode float64 (${e.message})`) : e
-  })
-)
+const decodeFloat64Body = (stream: Bytes.Stream): DecodeResult<number> =>
+  stream.shiftMany(8).pipe(
+    Either.flatMap(Float.decodeFloat64),
+    Either.mapLeft((e) => {
+      return e._tag == "DecodeException"
+        ? new DecodeError(stream, `failed to decode float64 (${e.message})`)
+        : e
+    })
+  )
 
 /**
  * @param bytes
  * @returns
  */
 export const decodeFloat = (bytes: Bytes.BytesLike): DecodeResult<number> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return stream.shiftOne().pipe(Either.flatMap((head) => {
+  return stream.shiftOne().pipe(
+    Either.flatMap((head) => {
       switch (head) {
         case FLOAT16_HEAD:
           return decodeFloat16Body(stream)
@@ -511,62 +502,63 @@ export const decodeFloat = (bytes: Bytes.BytesLike): DecodeResult<number> => {
         default:
           return Either.left(new DecodeError(stream, "invalid float header"))
       }
-    }))    
-  }
+    })
+  )
+}
 
 /**
  * @param bytes
  * @returns
  */
 export const decodeFloat16 = (bytes: Bytes.BytesLike): DecodeResult<number> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return stream.shiftOne().pipe(
-      Either.flatMap((head) => {
-        if (head != FLOAT16_HEAD) {
-          return Either.left(new DecodeError(stream, "invalid Float16 header"))
-        }
+  return stream.shiftOne().pipe(
+    Either.flatMap((head) => {
+      if (head != FLOAT16_HEAD) {
+        return Either.left(new DecodeError(stream, "invalid Float16 header"))
+      }
 
-        return decodeFloat16Body(stream)
-      })
-    )
-  }
+      return decodeFloat16Body(stream)
+    })
+  )
+}
 
 /**
  * @param bytes
  * @returns
  */
 export const decodeFloat32 = (bytes: Bytes.BytesLike): DecodeResult<number> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return stream.shiftOne().pipe(
-      Either.flatMap((head) => {
-        if (head != FLOAT32_HEAD) {
-          return Either.left(new DecodeError(stream, "invalid Float32 header"))
-        }
+  return stream.shiftOne().pipe(
+    Either.flatMap((head) => {
+      if (head != FLOAT32_HEAD) {
+        return Either.left(new DecodeError(stream, "invalid Float32 header"))
+      }
 
-        return decodeFloat32Body(stream)
-      })
-    )
-  }
+      return decodeFloat32Body(stream)
+    })
+  )
+}
 
 /**
  * @param bytes
  * @returns
  */
 export const decodeFloat64 = (bytes: Bytes.BytesLike): DecodeResult<number> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return stream.shiftOne().pipe(
-      Either.flatMap((head) => {
-        if (head != FLOAT64_HEAD) {
-          return Either.left(new DecodeError(stream, "invalid Float64 header")) 
-        }
+  return stream.shiftOne().pipe(
+    Either.flatMap((head) => {
+      if (head != FLOAT64_HEAD) {
+        return Either.left(new DecodeError(stream, "invalid Float64 header"))
+      }
 
-        return decodeFloat64Body(stream)
-      })
-    )
-  }
+      return decodeFloat64Body(stream)
+    })
+  )
+}
 
 /**
  * @param f
@@ -597,14 +589,17 @@ export function encodeFloat64(f: number): number[] {
  * @returns
  */
 export const isFloat = (bytes: Bytes.BytesLike): boolean => {
-  const head = Bytes.makeStream(bytes)
-    .peekOne()
+  const head = Bytes.makeStream(bytes).peekOne()
 
   if (Either.isLeft(head)) {
     return false
   }
 
-  return head.right == FLOAT16_HEAD || head.right == FLOAT32_HEAD || head.right == FLOAT64_HEAD
+  return (
+    head.right == FLOAT16_HEAD ||
+    head.right == FLOAT32_HEAD ||
+    head.right == FLOAT64_HEAD
+  )
 }
 
 /**
@@ -612,8 +607,7 @@ export const isFloat = (bytes: Bytes.BytesLike): boolean => {
  * @returns
  */
 export const isFloat16 = (bytes: Bytes.BytesLike): boolean => {
-  const head = Bytes.makeStream(bytes)
-    .peekOne()
+  const head = Bytes.makeStream(bytes).peekOne()
 
   if (Either.isLeft(head)) {
     return false
@@ -641,8 +635,7 @@ export const isFloat32 = (bytes: Bytes.BytesLike): boolean => {
  * @returns
  */
 export const isFloat64 = (bytes: Bytes.BytesLike): boolean => {
-  const head = Bytes.makeStream(bytes)
-    .peekOne()
+  const head = Bytes.makeStream(bytes).peekOne()
 
   if (Either.isLeft(head)) {
     return false
@@ -696,10 +689,12 @@ export const decodeDefHead = (
     return Either.right([m, l.right])
   } else if (n0 == 25) {
     if (m == 7) {
-      return Either.left(new DecodeError(
-        stream,
-        "Unexpected float16 (hint: decode float16 by calling decodeFloat16 directly)"
-      ))
+      return Either.left(
+        new DecodeError(
+          stream,
+          "Unexpected float16 (hint: decode float16 by calling decodeFloat16 directly)"
+        )
+      )
     }
 
     const n = decodeIntInternal(stream, 2)
@@ -711,10 +706,12 @@ export const decodeDefHead = (
     return Either.right([m, n.right])
   } else if (n0 == 26) {
     if (m == 7) {
-      return Either.left(new DecodeError(
-        stream,
-        "Unexpected float32 (hint: decode float32 by calling decodeFloat32 directly)"
-      ))
+      return Either.left(
+        new DecodeError(
+          stream,
+          "Unexpected float32 (hint: decode float32 by calling decodeFloat32 directly)"
+        )
+      )
     }
 
     const n = decodeIntInternal(stream, 4)
@@ -726,10 +723,12 @@ export const decodeDefHead = (
     return Either.right([m, n.right])
   } else if (n0 == 27) {
     if (m == 7) {
-      return Either.left(new DecodeError(
-        stream,
-        "Unexpected float64 (hint: decode float64 by calling decodeFloat64 directly)"
-      ))
+      return Either.left(
+        new DecodeError(
+          stream,
+          "Unexpected float64 (hint: decode float64 by calling decodeFloat64 directly)"
+        )
+      )
     }
 
     const n = decodeIntInternal(stream, 8)
@@ -740,10 +739,12 @@ export const decodeDefHead = (
     return Either.right([m, n.right])
   } else if ((m == 2 || m == 3 || m == 4 || m == 5 || m == 7) && n0 == 31) {
     // head value 31 is used an indefinite length marker for 2,3,4,5,7 (never for 0,1,6)
-    return Either.left(new DecodeError(
-      stream,
-      `Unexpected header m=${m} n0=${n0} (expected def instead of indef)`
-    ))
+    return Either.left(
+      new DecodeError(
+        stream,
+        `Unexpected header m=${m} n0=${n0} (expected def instead of indef)`
+      )
+    )
   } else {
     return Either.left(new DecodeError(stream, "Bad CBOR header"))
   }
@@ -820,11 +821,11 @@ export const peekMajorAndSimpleMinorType = (
  * @param bytes
  * @returns
  */
-export const decodeInt = (bytes: Bytes.BytesLike): DecodeResult<bigint> =>{
-    const stream = Bytes.makeStream(bytes)
+export const decodeInt = (bytes: Bytes.BytesLike): DecodeResult<bigint> => {
+  const stream = Bytes.makeStream(bytes)
 
-    return decodeDefHead(stream).pipe(
-      Either.flatMap(([m, n]) => {
+  return decodeDefHead(stream).pipe(
+    Either.flatMap(([m, n]) => {
       if (m == 0) {
         return Either.right(n)
       } else if (m == 1) {
@@ -833,16 +834,16 @@ export const decodeInt = (bytes: Bytes.BytesLike): DecodeResult<bigint> =>{
         if (n == 2n) {
           return decodeIntInternal(stream)
         } else if (n == 3n) {
-          return decodeIntInternal(stream).pipe(Either.map(x => -x -1n))
+          return decodeIntInternal(stream).pipe(Either.map((x) => -x - 1n))
         } else {
           return Either.left(new DecodeError(stream, `Unexpected tag m:${m}`))
         }
       } else {
         return Either.left(new DecodeError(stream, `Unexpected tag m:${m}`))
       }
-      })
-    )
-  }
+    })
+  )
+}
 
 const decodeIntInternal = (
   stream: Bytes.Stream,
@@ -852,10 +853,14 @@ const decodeIntInternal = (
     nBytes === undefined ? decodeBytes(stream) : stream.shiftMany(nBytes)
   ).pipe(
     Either.flatMap(BigEndian.decode),
-    Either.mapLeft((e) => e._tag == "DecodeException" ? new DecodeError(
-      stream,
-      `failed to decode BigEndian int (${e.message})`
-    ) : e)
+    Either.mapLeft((e) =>
+      e._tag == "DecodeException"
+        ? new DecodeError(
+            stream,
+            `failed to decode BigEndian int (${e.message})`
+          )
+        : e
+    )
   )
 }
 
@@ -900,40 +905,52 @@ export const isInt = (bytes: Bytes.BytesLike): boolean => {
   }
 }
 
-const decodeIndefList = <T>(stream: Bytes.Stream, itemDecoder: IndexedDecoder<T>): DecodeResult<T[]> => Either.gen(function* () {
-  const res: T[] = []
+const decodeIndefList = <T>(
+  stream: Bytes.Stream,
+  itemDecoder: IndexedDecoder<T>
+): DecodeResult<T[]> =>
+  Either.gen(function* () {
+    const res: T[] = []
 
-  yield* stream.shiftOne()
+    yield* stream.shiftOne()
 
-  let i = 0
-  while ((yield* stream.peekOne()) != 255) {
-    res.push(yield* itemDecoder(stream, i))
-    i++
-  }
+    let i = 0
+    while ((yield* stream.peekOne()) != 255) {
+      res.push(yield* itemDecoder(stream, i))
+      i++
+    }
 
-  const last = yield* stream.shiftOne()
-  if (last != 255) {
-    return yield* Either.left(new DecodeError(stream, "Invalid def list head byte"))
-  }
+    const last = yield* stream.shiftOne()
+    if (last != 255) {
+      return yield* Either.left(
+        new DecodeError(stream, "Invalid def list head byte")
+      )
+    }
 
-  return res
-})
+    return res
+  })
 
-const decodeDefList = <T>(stream: Bytes.Stream, itemDecoder: IndexedDecoder<T>): DecodeResult<T[]> => Either.gen(function* () {
-  const res: T[] = []
+const decodeDefList = <T>(
+  stream: Bytes.Stream,
+  itemDecoder: IndexedDecoder<T>
+): DecodeResult<T[]> =>
+  Either.gen(function* () {
+    const res: T[] = []
 
-  const [m, n] = yield* decodeDefHead(stream)
+    const [m, n] = yield* decodeDefHead(stream)
 
-  if (m != 4) {
-    return yield* Either.left(new DecodeError(stream, "invalid def list head byte"))
-  }
+    if (m != 4) {
+      return yield* Either.left(
+        new DecodeError(stream, "invalid def list head byte")
+      )
+    }
 
-  for (let i = 0; i < Number(n); i++) {
-    res.push(yield* itemDecoder(stream, i))
-  }
+    for (let i = 0; i < Number(n); i++) {
+      res.push(yield* itemDecoder(stream, i))
+    }
 
-  return res
-})
+    return res
+  })
 
 /**
  * Decodes a CBOR encoded list.
@@ -947,78 +964,84 @@ export const decodeList =
     itemDecoder: IndexedDecoder<T>
   ): ((bytes: Bytes.BytesLike) => DecodeResult<T[]>) =>
   (bytes: Bytes.BytesLike) => {
-      const stream = Bytes.makeStream(bytes)
+    const stream = Bytes.makeStream(bytes)
 
-      if (isIndefList(stream)) {
-        return decodeIndefList(stream, itemDecoder)
-      } else {
-        return decodeDefList(stream, itemDecoder)
-      }
+    if (isIndefList(stream)) {
+      return decodeIndefList(stream, itemDecoder)
+    } else {
+      return decodeDefList(stream, itemDecoder)
     }
-
-const decodeIndefListLazy = <T>(stream: Bytes.Stream) => Either.gen(function* () {
-  let i = 0
-  let done = false
-
-  yield* stream.shiftOne()
-
-  if ((yield* stream.peekOne()) == 255) {
-    yield* stream.shiftOne()
-    done = true
   }
 
-  const decodeItem = <T>(itemDecoder: IndexedDecoder<T>) => Either.gen(function* () {
-    if (done) {
-      return yield* Either.left(new DecodeError(stream, "end-of-list"))
-    }
+const decodeIndefListLazy = <T>(stream: Bytes.Stream) =>
+  Either.gen(function* () {
+    let i = 0
+    let done = false
 
-    const res = yield* itemDecoder(stream, i)
-
-    i++
+    yield* stream.shiftOne()
 
     if ((yield* stream.peekOne()) == 255) {
       yield* stream.shiftOne()
       done = true
     }
 
-    return res
+    const decodeItem = <T>(itemDecoder: IndexedDecoder<T>) =>
+      Either.gen(function* () {
+        if (done) {
+          return yield* Either.left(new DecodeError(stream, "end-of-list"))
+        }
+
+        const res = yield* itemDecoder(stream, i)
+
+        i++
+
+        if ((yield* stream.peekOne()) == 255) {
+          yield* stream.shiftOne()
+          done = true
+        }
+
+        return res
+      })
+
+    return decodeItem
   })
 
-  return decodeItem
-})
+const decodeDefListLazy = <T>(stream: Bytes.Stream) =>
+  Either.gen(function* () {
+    let i = 0
+    let done = false
 
-const decodeDefListLazy = <T>(stream: Bytes.Stream) => Either.gen(function* () {
-  let i = 0
-  let done = false
+    const [m, n] = yield* decodeDefHead(stream)
 
-  const [m, n] = yield* decodeDefHead(stream)
-
-  if (m != 4) {
-    return yield* Either.left(new DecodeError(stream, "Unexpected header major type"))
-  }
-
-  if (i >= n) {
-    done = true
-  }
-
-  const decodeItem = <T>(itemDecoder: IndexedDecoder<T>): DecodeResult<T> => Either.gen(function* () {
-    if (done) {
-      return yield* Either.left(new DecodeError(stream, "end-of-list"))
+    if (m != 4) {
+      return yield* Either.left(
+        new DecodeError(stream, "Unexpected header major type")
+      )
     }
-
-    const res = yield* itemDecoder(stream, i)
-
-    i++
 
     if (i >= n) {
       done = true
     }
 
-    return res
-  })
+    const decodeItem = <T>(itemDecoder: IndexedDecoder<T>): DecodeResult<T> =>
+      Either.gen(function* () {
+        if (done) {
+          return yield* Either.left(new DecodeError(stream, "end-of-list"))
+        }
 
-  return decodeItem
-})
+        const res = yield* itemDecoder(stream, i)
+
+        i++
+
+        if (i >= n) {
+          done = true
+        }
+
+        return res
+      })
+
+    return decodeItem
+  })
 
 /**
  * @param bytes
@@ -1027,82 +1050,88 @@ const decodeDefListLazy = <T>(stream: Bytes.Stream) => Either.gen(function* () {
 export const decodeListLazy = (
   bytes: Bytes.BytesLike
 ): DecodeResult<<T>(itemDecoder: IndexedDecoder<T>) => DecodeResult<T>> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    if (isIndefList(stream)) {
-      return decodeIndefListLazy(stream)
-    } else {
-      return decodeDefListLazy(stream)
-    }
+  if (isIndefList(stream)) {
+    return decodeIndefListLazy(stream)
+  } else {
+    return decodeDefListLazy(stream)
   }
+}
 
-const decodeIndefListLazyOption = (stream: Bytes.Stream) => Either.gen(function* () {
-  let i = 0
-  let done = false
+const decodeIndefListLazyOption = (stream: Bytes.Stream) =>
+  Either.gen(function* () {
+    let i = 0
+    let done = false
 
-  yield* stream.shiftOne()
-
-  if ((yield* stream.peekOne()) == 255) {
     yield* stream.shiftOne()
-    done = true
-  }
 
-  const decodeItem = <T>(
-      itemDecoder: IndexedDecoder<T>
-    ): DecodeResult<T | undefined> => Either.gen(function* () {
-      if (done) {
-        return undefined
-      }
-
-      const res = yield* itemDecoder(stream, i)
-
-      i++
-
-      if ((yield* stream.peekOne()) == 255) {
-        yield* stream.shiftOne()
-        done = true
-      }
-
-      return res
-    })
-
-  return decodeItem
-})
-
-const decodeDefListLazyOption = (stream: Bytes.Stream) => Either.gen(function* () {
-  let i = 0
-  let done = false
-
-  const [m, n] = yield* decodeDefHead(stream)
-
-  if (m != 4) {
-    return yield* Either.left(new DecodeError(stream, "Unexpected major type for list"))
-  }
-
-  if (i >= n) {
-    done = true
-  }
-
-  const decodeItem = <T>(
-    itemDecoder: IndexedDecoder<T>
-  ): DecodeResult<T | undefined> => Either.gen(function* () {
-    if (done) {
-      return undefined
+    if ((yield* stream.peekOne()) == 255) {
+      yield* stream.shiftOne()
+      done = true
     }
 
-    const res = yield* itemDecoder(stream, i)
+    const decodeItem = <T>(
+      itemDecoder: IndexedDecoder<T>
+    ): DecodeResult<T | undefined> =>
+      Either.gen(function* () {
+        if (done) {
+          return undefined
+        }
 
-    i++
+        const res = yield* itemDecoder(stream, i)
+
+        i++
+
+        if ((yield* stream.peekOne()) == 255) {
+          yield* stream.shiftOne()
+          done = true
+        }
+
+        return res
+      })
+
+    return decodeItem
+  })
+
+const decodeDefListLazyOption = (stream: Bytes.Stream) =>
+  Either.gen(function* () {
+    let i = 0
+    let done = false
+
+    const [m, n] = yield* decodeDefHead(stream)
+
+    if (m != 4) {
+      return yield* Either.left(
+        new DecodeError(stream, "Unexpected major type for list")
+      )
+    }
 
     if (i >= n) {
       done = true
     }
 
-    return res
-  })
+    const decodeItem = <T>(
+      itemDecoder: IndexedDecoder<T>
+    ): DecodeResult<T | undefined> =>
+      Either.gen(function* () {
+        if (done) {
+          return undefined
+        }
 
-  return decodeItem
-})
+        const res = yield* itemDecoder(stream, i)
+
+        i++
+
+        if (i >= n) {
+          done = true
+        }
+
+        return res
+      })
+
+    return decodeItem
+  })
 
 /**
  * @param bytes
@@ -1112,15 +1141,15 @@ export const decodeListLazyOption = (
   bytes: Bytes.BytesLike
 ): DecodeResult<
   <T>(itemDecoder: IndexedDecoder<T>) => DecodeResult<T | undefined>
-> =>{
-    const stream = Bytes.makeStream(bytes)
+> => {
+  const stream = Bytes.makeStream(bytes)
 
-    if (isIndefList(stream)) {
-      return decodeIndefListLazyOption(stream)
-    } else {
-      return decodeDefListLazyOption(stream)
-    }
+  if (isIndefList(stream)) {
+    return decodeIndefListLazyOption(stream)
+  } else {
+    return decodeDefListLazyOption(stream)
   }
+}
 
 /**
  * This follows the serialization format that the Haskell input-output-hk/plutus UPLC evaluator (i.e. empty lists use `encodeDefList`, non-empty lists use `encodeIndefList`).
@@ -1207,22 +1236,22 @@ export const isList = (bytes: Bytes.BytesLike): boolean => {
  * @returns
  */
 export const isDefList = (bytes: Bytes.BytesLike): boolean => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    const m = peekMajorType(stream)
+  const m = peekMajorType(stream)
 
-    if (Either.isLeft(m)) {
-      return false
-    }
-
-    const n = stream.peekOne()
-
-    if (Either.isLeft(n)) {
-      return false
-    }
-
-    return m.right == 4 && n.right != 4*32+31
+  if (Either.isLeft(m)) {
+    return false
   }
+
+  const n = stream.peekOne()
+
+  if (Either.isLeft(n)) {
+    return false
+  }
+
+  return m.right == 4 && n.right != 4 * 32 + 31
+}
 
 /**
  * @param bytes
@@ -1250,7 +1279,8 @@ export const isIndefList = (bytes: Bytes.BytesLike): boolean => {
  */
 export const decodeMap =
   <TKey, TValue>(keyDecoder: Decoder<TKey>, valueDecoder: Decoder<TValue>) =>
-  (bytes: Bytes.BytesLike): DecodeResult<[TKey, TValue][]> => Either.gen(function* () {
+  (bytes: Bytes.BytesLike): DecodeResult<[TKey, TValue][]> =>
+    Either.gen(function* () {
       const stream = Bytes.makeStream(bytes)
 
       if (isIndefMap(stream)) {
@@ -1411,18 +1441,18 @@ const NULL_BYTE = 246 // m = 7, n = 22
  * @returns
  */
 export const decodeNull = (bytes: Bytes.BytesLike): DecodeResult<null> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return stream.shiftOne().pipe(
-      Either.flatMap((b) => {
-        if (b != NULL_BYTE) {
-          return Either.left(new DecodeError(stream, "not null"))
-        }
+  return stream.shiftOne().pipe(
+    Either.flatMap((b) => {
+      if (b != NULL_BYTE) {
+        return Either.left(new DecodeError(stream, "not null"))
+      }
 
-        return Either.right(null)
-      })
-    )
-  }
+      return Either.right(null)
+    })
+  )
+}
 
 /**
  * Encode `null` into its CBOR representation.
@@ -1474,10 +1504,9 @@ export const decodeObjectIKey =
           const decoder: Decoder<any> | undefined = fieldDecoders[key]
 
           if (decoder === undefined) {
-            return yield* Either.left(new DecodeError(
-              pairStream,
-              `unhandled object field ${key}`
-            ))
+            return yield* Either.left(
+              new DecodeError(pairStream, `unhandled object field ${key}`)
+            )
           }
 
           /* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */
@@ -1521,10 +1550,9 @@ export const decodeObjectSKey =
           const decoder: Decoder<any> | undefined = fieldDecoders[key]
 
           if (decoder === undefined) {
-            return yield* Either.left(new DecodeError(
-              pairStream,
-              `unhandled object field ${key}`
-            ))
+            return yield* Either.left(
+              new DecodeError(pairStream, `unhandled object field ${key}`)
+            )
           }
 
           /* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */
@@ -1588,8 +1616,7 @@ export function encodeObjectSKey(
  * @param bytes
  * @returns
  */
-export const isObject = (bytes: Bytes.BytesLike): boolean =>
-  isMap(bytes)
+export const isObject = (bytes: Bytes.BytesLike): boolean => isMap(bytes)
 
 const SET_TAG = 258n
 
@@ -1603,25 +1630,27 @@ const SET_TAG = 258n
 export const decodeSet =
   <T>(itemDecoder: Decoder<T>) =>
   (bytes: Bytes.BytesLike): DecodeResult<T[]> => {
-      const stream = Bytes.makeStream(bytes)
+    const stream = Bytes.makeStream(bytes)
 
-      if (isTag(stream)) {
-        const tag = decodeTag(stream)
+    if (isTag(stream)) {
+      const tag = decodeTag(stream)
 
-        if (Either.isLeft(tag)) {
-          return Either.left(tag.left)
-        }
-
-        if (tag.right != SET_TAG) {
-          return Either.left(new DecodeError(
-            stream,
-            `expected tag ${SET_TAG} for set, got tag ${tag}`
-          ))
-        }
+      if (Either.isLeft(tag)) {
+        return Either.left(tag.left)
       }
 
-      return decodeList(itemDecoder)(stream)
+      if (tag.right != SET_TAG) {
+        return Either.left(
+          new DecodeError(
+            stream,
+            `expected tag ${SET_TAG} for set, got tag ${tag}`
+          )
+        )
+      }
     }
+
+    return decodeList(itemDecoder)(stream)
+  }
 
 /**
  * A tagged def list (tag 258n)
@@ -1646,49 +1675,50 @@ export const isSet = (bytes: Bytes.BytesLike): boolean => {
   return t.right == SET_TAG
 }
 
-const decodeSplitString = (stream: Bytes.Stream): DecodeResult<string> => decodeList((itemBytes) =>
-    decodeStringInternal(itemBytes)
-  )(stream).pipe(Either.map(parts => parts.join("")))
+const decodeSplitString = (stream: Bytes.Stream): DecodeResult<string> =>
+  decodeList((itemBytes) => decodeStringInternal(itemBytes))(stream).pipe(
+    Either.map((parts) => parts.join(""))
+  )
 
 /**
  * @param bytes
  * @returns
  */
 export const decodeString = (bytes: Bytes.BytesLike): DecodeResult<string> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    if (isDefList(stream)) {
-      return decodeSplitString(stream)
-    } else {
-      return decodeStringInternal(stream)
-    }
+  if (isDefList(stream)) {
+    return decodeSplitString(stream)
+  } else {
+    return decodeStringInternal(stream)
   }
+}
 
 /**
  * @param bytes
  * @returns
  */
 const decodeStringInternal = (bytes: Bytes.BytesLike): DecodeResult<string> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return decodeDefHead(stream).pipe(
-      Either.flatMap(([m, n]): DecodeResult<number[]> => {
-        if (m != 3) {
-          return Either.left(new DecodeError(stream, "unexpected"))
-        }
+  return decodeDefHead(stream).pipe(
+    Either.flatMap(([m, n]): DecodeResult<number[]> => {
+      if (m != 3) {
+        return Either.left(new DecodeError(stream, "unexpected"))
+      }
 
-        return stream.shiftMany(Number(n))
-      }),
-      Either.flatMap(Utf8.decode),
-      Either.mapLeft((e) => {
-        if (e._tag == "DecodeException") {
-          return new DecodeError(stream, `invalid utf8 (${e.message})`)
-        }
+      return stream.shiftMany(Number(n))
+    }),
+    Either.flatMap(Utf8.decode),
+    Either.mapLeft((e) => {
+      if (e._tag == "DecodeException") {
+        return new DecodeError(stream, `invalid utf8 (${e.message})`)
+      }
 
-        return e
-      })
-    )
-  }
+      return e
+    })
+  )
+}
 
 /**
  * Encodes a Utf8 string into Cbor bytes.
@@ -1747,18 +1777,20 @@ export const isString = (bytes: Bytes.BytesLike): boolean => {
  * @returns
  */
 export const decodeTag = (bytes: Bytes.BytesLike): DecodeResult<bigint> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    return decodeDefHead(stream).pipe(
-      Either.flatMap(([m, n]): DecodeResult<bigint> => {
-        if (m != 6) {
-          return Either.left(new DecodeError(stream, "unexpected major type for tag"))
-        }
+  return decodeDefHead(stream).pipe(
+    Either.flatMap(([m, n]): DecodeResult<bigint> => {
+      if (m != 6) {
+        return Either.left(
+          new DecodeError(stream, "unexpected major type for tag")
+        )
+      }
 
-        return Either.right(n)
-      })
-    )
-  }
+      return Either.right(n)
+    })
+  )
+}
 
 /**
  * Unrelated to constructor
@@ -1815,7 +1847,8 @@ export const peekTag = (
  */
 export const decodeTagged = (
   bytes: Bytes.BytesLike
-): DecodeResult<[number, <T>(itemDecoder: Decoder<T>) => DecodeResult<T>]> => Either.gen(function* () {
+): DecodeResult<[number, <T>(itemDecoder: Decoder<T>) => DecodeResult<T>]> =>
+  Either.gen(function* () {
     const stream = Bytes.makeStream(bytes)
 
     if (isList(stream)) {
@@ -1860,7 +1893,8 @@ export const decodeTuple =
           : never
       }
     ]
-  > => Either.gen(function* () {
+  > =>
+    Either.gen(function* () {
       const stream = Bytes.makeStream(bytes)
 
       /**
@@ -1875,12 +1909,14 @@ export const decodeTuple =
             decoder = optionalDecoders[i - itemDecoders.length]
 
             if (decoder === undefined) {
-              return yield* Either.left(new DecodeError(
-                itemStream,
-                `expected at most ${
-                  itemDecoders.length + optionalDecoders.length
-                } items, got more than ${i}`
-              ))
+              return yield* Either.left(
+                new DecodeError(
+                  itemStream,
+                  `expected at most ${
+                    itemDecoders.length + optionalDecoders.length
+                  } items, got more than ${i}`
+                )
+              )
             }
           }
 
@@ -1890,10 +1926,12 @@ export const decodeTuple =
       )(stream)
 
       if (res.length < itemDecoders.length) {
-        return yield* Either.left(new DecodeError(
-          stream,
-          `expected at least ${itemDecoders.length} items, only got ${res.length}`
-        ))
+        return yield* Either.left(
+          new DecodeError(
+            stream,
+            `expected at least ${itemDecoders.length} items, only got ${res.length}`
+          )
+        )
       }
 
       return res as [

@@ -59,9 +59,9 @@ export function toHex(bytes: string | number[] | Uint8Array | Stream): string {
  */
 export function toUint8Array(
   bytes: string | number[] | Uint8Array | Stream
-): Uint8Array {
+): Uint8Array<ArrayBuffer> {
   if (bytes instanceof Uint8Array) {
-    return bytes
+    return bytes as Uint8Array<ArrayBuffer>
   } else if (typeof bytes == "string") {
     const result = Encoding.decodeHex(bytes)
     if (Either.isLeft(result)) {
@@ -69,7 +69,7 @@ export function toUint8Array(
       throw result.left
     }
 
-    return result.right
+    return result.right as Uint8Array<ArrayBuffer>
   } else if (Array.isArray(bytes)) {
     return Uint8Array.from(bytes)
   } else if ("peekRemaining" in bytes) {
@@ -168,9 +168,7 @@ class StreamImpl implements Stream {
     }
 
     if (this.pos + n <= this.bytes.length) {
-      return Either.right(
-        Array.from(this.bytes.slice(this.pos, this.pos + n))
-      )
+      return Either.right(Array.from(this.bytes.slice(this.pos, this.pos + n)))
     } else {
       return Either.left(new EndOfStreamError(this))
     }
@@ -256,6 +254,23 @@ export function compare(
   } else {
     return 0
   }
+}
+
+export function concat(...a: BytesLike[]): Uint8Array {
+  const chunks = a.map(toUint8Array)
+
+  const n = chunks.reduce((prev, chunk) => prev + chunk.length, 0)
+
+  const res = new Uint8Array(n)
+
+  let offset = 0
+
+  chunks.forEach((chunk) => {
+    res.set(chunk, offset)
+    offset += chunk.length
+  })
+
+  return res
 }
 
 /**

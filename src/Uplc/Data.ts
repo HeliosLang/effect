@@ -147,20 +147,22 @@ export type DataJSON =
  * @returns
  */
 export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Data> => {
-    const stream = Bytes.makeStream(bytes)
+  const stream = Bytes.makeStream(bytes)
 
-    if (Cbor.isList(stream)) {
-      return Cbor.decodeList(decode)(stream).pipe(Either.map(makeListData))
-    } else if (Cbor.isBytes(stream)) {
-      return Cbor.decodeBytes(stream).pipe(Either.map(makeByteArrayData))
-    } else if (Cbor.isMap(stream)) {
-      return Cbor.decodeMap(decode, decode)(stream).pipe(Either.map(makeMapData))
-    } else if (Cbor.isConstr(stream)) {
-      return Cbor.decodeConstr(decode)(stream).pipe(Either.map(([tag, fields]) => makeConstrData(tag, fields)))
-    } else {
-      return Cbor.decodeInt(stream).pipe(Either.map(makeIntData))
-    }
+  if (Cbor.isList(stream)) {
+    return Cbor.decodeList(decode)(stream).pipe(Either.map(makeListData))
+  } else if (Cbor.isBytes(stream)) {
+    return Cbor.decodeBytes(stream).pipe(Either.map(makeByteArrayData))
+  } else if (Cbor.isMap(stream)) {
+    return Cbor.decodeMap(decode, decode)(stream).pipe(Either.map(makeMapData))
+  } else if (Cbor.isConstr(stream)) {
+    return Cbor.decodeConstr(decode)(stream).pipe(
+      Either.map(([tag, fields]) => makeConstrData(tag, fields))
+    )
+  } else {
+    return Cbor.decodeInt(stream).pipe(Either.map(makeIntData))
   }
+}
 
 /**
  * Simple recursive CBOR encoder
@@ -749,8 +751,8 @@ export const Enum = <
 
 /**
  * Simple recursive algorithm
- * @param d 
- * @returns 
+ * @param d
+ * @returns
  */
 export function toString(d: Data) {
   if ("bytes" in d) {
@@ -764,7 +766,9 @@ export function toString(d: Data) {
     const parts: string[] = d.list.map(toString)
     return `List [${parts.join(", ")}]`
   } else if ("map" in d) {
-    const parts: string[] = d.map.map(({k, v}) => `(${toString(k)}, ${toString(v)})`)
+    const parts: string[] = d.map.map(
+      ({ k, v }) => `(${toString(k)}, ${toString(v)})`
+    )
     return `Map [${parts.join(", ")}]`
   } else {
     throw new Error("unhandled UplcData type")
