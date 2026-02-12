@@ -42,15 +42,13 @@ export const decode = (
 ): Cbor.DecodeResult<MintingPolicy> =>
   Cbor.decodeBytes(bytes).pipe(
     Either.flatMap(make),
-    Either.mapLeft(
-      (e) => {
-        if (e._tag == "ParseError") {
-          return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
-        } else {
-          return e
-        }
+    Either.mapLeft((e) => {
+      if (e._tag == "ParseError") {
+        return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+      } else {
+        return e
       }
-    )
+    })
   )
 
 export function encode(policy: MintingPolicy): number[] {

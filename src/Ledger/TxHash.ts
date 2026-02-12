@@ -33,15 +33,13 @@ export function make(txId: Bytes.BytesLike) {
 export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxHash> =>
   Cbor.decodeBytes(bytes).pipe(
     Either.flatMap(make),
-    Either.mapLeft(
-      (e) => {
-        if (e._tag == "ParseError") {
-          return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
-        } else {
-          return e
-        }
+    Either.mapLeft((e) => {
+      if (e._tag == "ParseError") {
+        return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+      } else {
+        return e
       }
-    )
+    })
   )
 
 export function encode(txId: TxHash): number[] {

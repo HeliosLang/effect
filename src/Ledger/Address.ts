@@ -211,20 +211,18 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Address> =>
     Either.map(({ isMainnet, spendingCredential, stakingCredential }) =>
       make(isMainnet, spendingCredential, stakingCredential)
     ),
-    Either.mapLeft(
-      (e) => {
-        if (e._tag == "ParseError") {
-          return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
-        } else if (e._tag == "DecodeException") {
-          return new Cbor.DecodeError(
-            Bytes.makeStream(bytes),
-            `bech32 decoding failed (${e.message})`
-          )
-        } else {
-          return e
-        }
+    Either.mapLeft((e) => {
+      if (e._tag == "ParseError") {
+        return new Cbor.DecodeError(Bytes.makeStream(bytes), e.message)
+      } else if (e._tag == "DecodeException") {
+        return new Cbor.DecodeError(
+          Bytes.makeStream(bytes),
+          `bech32 decoding failed (${e.message})`
+        )
+      } else {
+        return e
       }
-    )
+    })
   )
 
 export function encode(address: Address): number[] {

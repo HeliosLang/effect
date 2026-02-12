@@ -24,10 +24,16 @@ export const decode = (
   Either.gen(function* () {
     const stream = Bytes.makeStream(bytes)
 
-    if ((yield* Cbor.decodeTupleLazy(stream.copy()))((bytes) => Either.right(Cbor.isBytes(bytes)))) {
+    if (
+      yield* (yield* Cbor.decodeTupleLazy(stream.copy()))((bytes) =>
+        Either.right(Cbor.isBytes(bytes))
+      )
+    ) {
       return yield* UTxORef.decode(stream)
     } else if (
-      (yield* Cbor.decodeTupleLazy(stream.copy()))((bytes) => Either.right(Cbor.isTuple(bytes)))
+      yield* (yield* Cbor.decodeTupleLazy(stream.copy()))((bytes) =>
+        Either.right(Cbor.isTuple(bytes))
+      )
     ) {
       return yield* decodeFull(stream)
     } else {

@@ -14,7 +14,7 @@ import * as Uint64 from "../internal/Uint64.js"
  * @returns
  * List of uint8 numbers.
  */
-export function hashSync(bytes: Bytes.BytesLike, digestSize = 32): number[] {
+export function hashSync(bytes: Bytes.BytesLike, digestSize = 32): Uint8Array {
   let bs = Bytes.toArray(bytes)
 
   /**
@@ -72,7 +72,7 @@ export function hashSync(bytes: Bytes.BytesLike, digestSize = 32): number[] {
     final = final.concat(Uint64.toBytes(h[i]))
   }
 
-  return final.slice(0, digestSize)
+  return new Uint8Array(final.slice(0, digestSize))
 }
 
 /**

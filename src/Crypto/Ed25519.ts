@@ -3,7 +3,12 @@ import * as Bits from "../internal/Bits.js"
 import * as Bytes from "../internal/Bytes.js"
 import * as LittleEndian from "../internal/LittleEndian.js"
 import { type Curve, type Point2I, type Point4 } from "./Curve.js"
-import { EdDSA } from "./EdDSA.js"
+import {
+  BadPrivateKeyLength,
+  BadPublicKeyLength,
+  BadSignatureLength,
+  EdDSA
+} from "./EdDSA.js"
 import { FieldHelper, ScalarField } from "./Field.js"
 
 /**
@@ -352,7 +357,7 @@ class ExtendedCurve implements Curve<Point4<bigint>, bigint> {
 
 export const extendedCurve = /* @__PURE__ */ (() => new ExtendedCurve())()
 
-export const Ed25519 = /* @__PURE__ */ (() =>
+const algorithm = /* @__PURE__ */ (() =>
   new EdDSA(extendedCurve, G, new ScalarField(N), {
     decodePoint,
     encodePoint,
@@ -360,3 +365,57 @@ export const Ed25519 = /* @__PURE__ */ (() =>
     decodeScalar,
     encodeScalar
   }))()
+
+/**
+ * @param privateKey
+ * Must be 64 bytes long
+ * @param hashPrivateKey
+ * Defaults to true, set to false when used in Bip32 algorithm
+ * @returns
+ * 32 byte public key, or BadPrivateKeyLength if private key isn't 64 bytes long
+ */
+export function derivePublicKey(
+  privateKey: Uint8Array,
+  hashPrivateKey: boolean = true
+): Either.Either<Uint8Array, BadPrivateKeyLength> {
+  return algorithm.derivePublicKey(privateKey, hashPrivateKey)
+}
+
+/**
+ * Sign the message.
+ * Even though this implementation isn't constant time, it isn't vulnerable to a timing attack (see detailed notes in EdDSA implementation)
+ * @param message
+ * @param privateKeyBytes
+ * @param hashPrivateKey
+ * Defaults to true, Bip32 passes this as false
+ * @returns
+ * 64 byte signature, or BadPrivateKeyLength if private key isn't 64 bytes long
+ */
+export function sign(
+  message: Uint8Array,
+  privateKey: Uint8Array,
+  hashPrivateKey: boolean = true
+): Either.Either<Uint8Array, BadPrivateKeyLength> {
+  return algorithm.sign(message, privateKey, hashPrivateKey)
+}
+
+/**
+ * @param signature
+ * @param message
+ * @param publicKey
+ * @returns
+ *   - `true` if the signature is correct.
+ *   - `false`:
+ *     - if the signature is incorrect
+ *     - if the signature doesn't lie on the curve,
+ *     - if the publicKey doesn't lie on the curve
+ *   - BadPublicKeyLength if publicKey isn't 32 bytes long
+ *   - BadSignatureLength if signature isn't 64 bytes long
+ */
+export function verify(
+  signature: Uint8Array,
+  message: Uint8Array,
+  publicKey: Uint8Array
+): Either.Either<boolean, BadSignatureLength | BadPublicKeyLength> {
+  return algorithm.verify(signature, message, publicKey)
+}

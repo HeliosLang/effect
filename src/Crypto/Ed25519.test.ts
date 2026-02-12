@@ -6,7 +6,7 @@ import * as Ed25519 from "./Ed25519.js"
 import { EdDSA } from "./EdDSA.js"
 import { ScalarField } from "./Field.js"
 
-const affine = new EdDSA(
+const affineAlgorithm = new EdDSA(
   Ed25519.affineCurve,
   Ed25519.G,
   new ScalarField(Ed25519.N),
@@ -19,7 +19,11 @@ const affine = new EdDSA(
   }
 )
 
-const extended = Ed25519.Ed25519
+const extendedAlgorithm = {
+  derivePublicKey: Ed25519.derivePublicKey,
+  sign: Ed25519.sign,
+  verify: Ed25519.verify
+}
 
 describe('Ed25519 for ""', () => {
   // not the extended privateKey!
@@ -36,33 +40,37 @@ describe('Ed25519 for ""', () => {
   )
 
   it(`generates publicKey ##d7..1a for privateKey #9d..60`, () => {
-    expect(Effect.runSync(extended.derivePublicKey(privateKey))).toEqual(
-      expectedPublicKey
-    )
+    expect(
+      Effect.runSync(extendedAlgorithm.derivePublicKey(privateKey))
+    ).toEqual(expectedPublicKey)
   })
 
   it(`generates publicKey ##d7..1a for privateKey #9d..60 (affine)`, () => {
-    expect(Effect.runSync(affine.derivePublicKey(privateKey))).toEqual(
+    expect(Effect.runSync(affineAlgorithm.derivePublicKey(privateKey))).toEqual(
       expectedPublicKey
     )
   })
 
   it(`signs as #7e..04 for privateKey #9d..60`, () => {
     expect(
-      Effect.runSync(extended.sign(messageBytes, privateKey, true))
+      Effect.runSync(extendedAlgorithm.sign(messageBytes, privateKey, true))
     ).toEqual(expectedSignature)
   })
 
   it(`signs as #7e..04 for privateKey #9d..60 (affine)`, () => {
-    expect(Effect.runSync(affine.sign(messageBytes, privateKey, true))).toEqual(
-      expectedSignature
-    )
+    expect(
+      Effect.runSync(affineAlgorithm.sign(messageBytes, privateKey, true))
+    ).toEqual(expectedSignature)
   })
 
   it(`returns true when verifying signature #7e..04`, () => {
     expect(
       Effect.runSync(
-        extended.verify(expectedSignature, messageBytes, expectedPublicKey)
+        extendedAlgorithm.verify(
+          expectedSignature,
+          messageBytes,
+          expectedPublicKey
+        )
       )
     ).toBe(true)
   })
@@ -70,7 +78,11 @@ describe('Ed25519 for ""', () => {
   it(`returns true when verifying signature #7e..04 (affine)`, () => {
     expect(
       Effect.runSync(
-        affine.verify(expectedSignature, messageBytes, expectedPublicKey)
+        affineAlgorithm.verify(
+          expectedSignature,
+          messageBytes,
+          expectedPublicKey
+        )
       )
     ).toBe(true)
   })
@@ -78,7 +90,7 @@ describe('Ed25519 for ""', () => {
   it(`returns false when verifying different message`, () => {
     expect(
       Effect.runSync(
-        extended.verify(
+        extendedAlgorithm.verify(
           expectedSignature,
           new Uint8Array([0, 0]),
           expectedPublicKey
@@ -104,20 +116,24 @@ describe('Ed25519 for "Hello"', () => {
 
   it(`signs as #62..0a for privateKey #9d..60`, () => {
     expect(
-      Effect.runSync(extended.sign(messageBytes, privateKey, true))
+      Effect.runSync(extendedAlgorithm.sign(messageBytes, privateKey, true))
     ).toEqual(expectedSignature)
   })
 
   it(`signs as #62..0a for privateKey #9d..60 (affine)`, () => {
-    expect(Effect.runSync(affine.sign(messageBytes, privateKey, true))).toEqual(
-      expectedSignature
-    )
+    expect(
+      Effect.runSync(affineAlgorithm.sign(messageBytes, privateKey, true))
+    ).toEqual(expectedSignature)
   })
 
   it(`returns true when verifying signature #62..0a`, () => {
     expect(
       Effect.runSync(
-        extended.verify(expectedSignature, messageBytes, expectedPublicKey)
+        extendedAlgorithm.verify(
+          expectedSignature,
+          messageBytes,
+          expectedPublicKey
+        )
       )
     ).toBe(true)
   })
@@ -125,7 +141,11 @@ describe('Ed25519 for "Hello"', () => {
   it(`returns true when verifying signature #62..0a (affine)`, () => {
     expect(
       Effect.runSync(
-        affine.verify(expectedSignature, messageBytes, expectedPublicKey)
+        affineAlgorithm.verify(
+          expectedSignature,
+          messageBytes,
+          expectedPublicKey
+        )
       )
     ).toBe(true)
   })
@@ -133,7 +153,7 @@ describe('Ed25519 for "Hello"', () => {
   it(`returns false when verifying different message`, () => {
     expect(
       Effect.runSync(
-        extended.verify(
+        extendedAlgorithm.verify(
           expectedSignature,
           new Uint8Array([0, 0]),
           expectedPublicKey

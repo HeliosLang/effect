@@ -27,6 +27,10 @@ type Data$ = Schema.Schema.Type<typeof Data$>
 
 export { Data$ as Data }
 
+export function isData(v: Value): v is Data$ {
+  return typeof v == "object" && v != null && "data" in v
+}
+
 export const Int = Schema.BigIntFromSelf
 
 export type Int = Schema.Schema.Type<typeof Int>
@@ -49,6 +53,10 @@ export const List = Schema.Struct({
   items: Schema.Array(SuspendedValue)
 })
 
+export function isList(v: Value): v is List {
+  return typeof v == "object" && v != null && "items" in v
+}
+
 export type Pair = {
   readonly first: Value
   readonly second: Value
@@ -58,6 +66,10 @@ export const Pair = Schema.Struct({
   first: SuspendedValue,
   second: SuspendedValue
 })
+
+export function isPair(v: Value): v is Pair {
+  return typeof v == "object" && v != null && "first" in v
+}
 
 export const Bls12_381_G1Element = Schema.Struct({
   g1Element: Schema.Tuple(
@@ -430,4 +442,8 @@ export function toType(v: Value): Type.Type {
       `unhandled value kind in Uplc.Value.toType() (got: ${v as unknown})`
     )
   }
+}
+
+export function describeType(v: Value): string {
+  return Type.toString(toType(v))
 }

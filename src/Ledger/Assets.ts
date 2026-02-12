@@ -102,10 +102,12 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Assets> =>
 
       for (const [policy, inner] of otherAssets) {
         if (policy._tag == "None") {
-          return yield* Either.left(new Cbor.DecodeError(
-            stream,
-            "unexpected ADA assetclass in encoded non-ADA assets"
-          ))
+          return yield* Either.left(
+            new Cbor.DecodeError(
+              stream,
+              "unexpected ADA assetclass in encoded non-ADA assets"
+            )
+          )
         }
 
         for (const [tokenName, quantity] of inner) {

@@ -87,6 +87,7 @@ export type Delay = {
   _tag: "Delay"
   arg: Term
   sourceSpan?: SourceSpan | undefined
+  name?: string | undefined
 }
 
 const Error$ = Schema.TaggedStruct("Error", {
@@ -111,7 +112,8 @@ export type Force = {
 export const Lambda = Schema.TaggedStruct("Lambda", {
   body: SuspendedTerm,
   argName: Schema.optional(Schema.String),
-  sourceSpan: Schema.optional(SourceSpan)
+  sourceSpan: Schema.optional(SourceSpan),
+  name: Schema.optional(Schema.String)
 })
 
 export type Lambda = {
@@ -119,6 +121,7 @@ export type Lambda = {
   body: Term
   argName?: string | undefined
   sourceSpan?: SourceSpan | undefined
+  name?: string | undefined
 }
 
 export const Var = Schema.TaggedStruct("Var", {

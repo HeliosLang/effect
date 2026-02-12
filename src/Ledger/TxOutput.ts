@@ -71,10 +71,9 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
         3: (stream): Cbor.DecodeResult<number[]> =>
           Either.gen(function* () {
             if ((yield* Cbor.decodeTag(stream)) != 24n) {
-              return yield* Either.left(new Cbor.DecodeError(
-                stream,
-                "unexpected reference script tag"
-              ))
+              return yield* Either.left(
+                new Cbor.DecodeError(stream, "unexpected reference script tag")
+              )
             }
 
             return yield* Cbor.decodeBytes(stream)
@@ -82,11 +81,15 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
       })(stream)
 
       if (!address) {
-        return yield* Either.left(new Cbor.DecodeError(stream, "address field missing"))
+        return yield* Either.left(
+          new Cbor.DecodeError(stream, "address field missing")
+        )
       }
 
       if (!assets) {
-        return yield* Either.left(new Cbor.DecodeError(stream, "assets field missing"))
+        return yield* Either.left(
+          new Cbor.DecodeError(stream, "assets field missing")
+        )
       }
 
       return make({
@@ -111,7 +114,9 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
         }
       })
     } else {
-      return yield* Either.left(new Cbor.DecodeError(stream, "unexpected TxOutput encoding"))
+      return yield* Either.left(
+        new Cbor.DecodeError(stream, "unexpected TxOutput encoding")
+      )
     }
   })
 
