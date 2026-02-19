@@ -27,3 +27,12 @@ export const decode = (bytes: Bytes.BytesLike): DecodeResult<Signature> =>
 export function encode(s: Signature): number[] {
   return encodeTuple([PubKey.encode(s.pubKey), encodeBytes(s.bytes)])
 }
+
+export const dummy: Signature = {
+  pubKey: PubKey.dummy,
+  bytes: new Uint8Array(new Array(64).fill(0))
+}
+
+export function isDummy(s: Signature): boolean {
+  return Bytes.equals(s.bytes, dummy.bytes)
+}

@@ -1,6 +1,9 @@
-import { Either, Schema } from "effect"
+import { Effect, Either, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
+import * as Network from "../Network"
+import * as Data from "../Uplc/Data.js"
+import * as Assets from "./Assets.js"
 import * as TxOutput from "./TxOutput.js"
 import * as UTxORef from "./UTxORef.js"
 
@@ -10,6 +13,32 @@ export const UTxO = Schema.Struct({
 })
 
 export type UTxO = Schema.Schema.Type<typeof UTxO>
+
+export const FromUplcData = Schema.transform(
+  Data.EnumVariant(0, {
+    ref: UTxORef.FromUplcData,
+    output: TxOutput.FromUplcData
+  }),
+  Schema.typeSchema(UTxO),
+  {
+    strict: true,
+    decode: ({ ref, output }): UTxO => ({ ref, output }),
+    encode: ({ ref, output }: UTxO) => ({ ref, output })
+  }
+)
+
+export const FromUplcDataV3 = Schema.transform(
+  Data.EnumVariant(0, {
+    ref: UTxORef.FromUplcDataV3,
+    output: TxOutput.FromUplcData
+  }),
+  Schema.typeSchema(UTxO),
+  {
+    strict: true,
+    decode: ({ ref, output }): UTxO => ({ ref, output }),
+    encode: ({ ref, output }: UTxO) => ({ ref, output })
+  }
+)
 
 export function make(ref: UTxORef.UTxORef, output: TxOutput.TxOutput): UTxO {
   return {
@@ -48,13 +77,67 @@ export const decodeFull = (bytes: Bytes.BytesLike): Cbor.DecodeResult<UTxO> =>
     Either.map(([id, output]) => make(id, output))
   )
 
-export function encode(txInput: UTxO, full: boolean = false) {
-  if (full) {
+export const encode = (options: { full?: boolean }) => (utxo: UTxO) => {
+  if (options.full === true) {
     return Cbor.encodeTuple([
-      UTxORef.encode(txInput.ref),
-      TxOutput.encode(txInput.output)
+      UTxORef.encode(utxo.ref),
+      TxOutput.encode(utxo.output)
     ])
   } else {
-    return UTxORef.encode(txInput.ref)
+    return UTxORef.encode(utxo.ref)
   }
+}
+
+export const resolve =
+  (options: { trusted?: boolean }) => (utxo: UTxO | UTxORef.UTxORef) =>
+    Effect.gen(function* () {
+      if (typeof utxo == "string") {
+        const getUTxO = yield* Network.UTxO
+        return yield* getUTxO(utxo)
+      } else if ("ref" in utxo) {
+        if (options.trusted === true) {
+          return utxo
+        } else {
+          const getUTxO = yield* Network.UTxO
+          return yield* getUTxO(utxo.ref)
+        }
+      } else {
+        throw new Error(
+          `unexpected input to UTxO.resolve(): ${utxo as unknown as any}`
+        )
+      }
+    })
+
+export const resolveAll =
+  (options: { trusted?: boolean }) => (utxos: (UTxO | UTxORef.UTxORef)[]) =>
+    Effect.all(utxos.map(resolve(options)))
+
+/**
+ * For sorting lists of UTxOs
+ * @param a
+ * @param b
+ */
+export function compare(a: UTxO, b: UTxO): number {
+  return UTxORef.compare(a.ref, b.ref)
+}
+
+export const sumAssets = (...utxos: readonly UTxO[]): Assets.Assets =>
+  Assets.sum(...utxos.map((utxo) => utxo.output.assets))
+
+export const difference = (set: readonly UTxO[], exclude: readonly UTxO[]) =>
+  set.filter((utxo) => !exclude.some((e) => e.ref == utxo.ref))
+
+/**
+ * Resorts the list after appending
+ * @param list
+ * Not mutated
+ * @param utxo
+ * @returns
+ */
+export const append = (list: readonly UTxO[], ...utxos: UTxO[]) => {
+  const result = list.slice().concat(utxos)
+
+  result.sort(compare)
+
+  return result
 }

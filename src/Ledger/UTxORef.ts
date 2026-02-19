@@ -1,7 +1,7 @@
 import { Either, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
-import * as Uplc from "../Uplc/index.js"
+import * as Data from "../Uplc/Data.js"
 import * as TxHash from "./TxHash.js"
 
 export function isValid(ref: string): ref is UTxORef {
@@ -39,9 +39,29 @@ export function make(txHash: TxHash.TxHash, index: number | bigint): UTxORef {
 }
 
 export const FromUplcData = Schema.transform(
-  Uplc.Data.EnumVariant(0, {
+  Data.EnumVariant(0, {
     txHash: TxHash.FromUplcData,
-    index: Uplc.Data.Int
+    index: Data.Int
+  }),
+  UTxORef,
+  {
+    strict: true,
+    decode: ({ txHash, index: index }) => {
+      return make(txHash, index)
+    },
+    encode: (ref) => {
+      return {
+        txHash: txHash(ref as UTxORef),
+        index: index(ref as UTxORef)
+      }
+    }
+  }
+)
+
+export const FromUplcDataV3 = Schema.transform(
+  Data.EnumVariant(0, {
+    txHash: TxHash.FromUplcDataV3,
+    index: Data.Int
   }),
   UTxORef,
   {
@@ -80,4 +100,14 @@ export function txHash(ref: UTxORef): TxHash.TxHash {
 
 export function index(ref: UTxORef): number {
   return parseInt(ref.slice(64))
+}
+
+export function compare(a: UTxORef, b: UTxORef): number {
+  const d = TxHash.compare(txHash(a), txHash(b))
+
+  if (d != 0) {
+    return d
+  }
+
+  return index(a) - index(b)
 }

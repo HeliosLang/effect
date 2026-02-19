@@ -50,7 +50,7 @@ function getParamOrThrow(params: Params, index: number): bigint {
   return BigInt(Option.fromNullable(params[index]).pipe(Option.getOrThrow))
 }
 
-export function makeModel(params: Params, builtins: Builtin[]): Model {
+export function makeModel(params: Params, builtins: readonly Builtin[]): Model {
   return {
     applyTerm: {
       cpu: getParamOrThrow(params, 17),
@@ -110,7 +110,48 @@ export function makeModel(params: Params, builtins: Builtin[]): Model {
 
 type Function$ = (params: Params) => (argSizes: number[]) => bigint
 
-export const Const =
+export const Max: Function$ = (_params: Params) => {
+  return (argSizes: number[]) => {
+    return BigInt(argSizes.reduce((m, s) => (s > m ? s : m), 0))
+  }
+}
+
+export const Min: Function$ = (_params: Params) => {
+  return (argSizes: number[]) => {
+    return BigInt(
+      argSizes.slice(1).reduce((m, a) => (a < m ? a : m), argSizes[0])
+    )
+  }
+}
+
+export const Sum: Function$ = (_params: Params) => {
+  return (argSizes: number[]) => {
+    return BigInt(argSizes.reduce((s, a) => s + a, 0))
+  }
+}
+
+export const Prod: Function$ = (_params: Params) => {
+  return (argSizes: number[]) => {
+    return BigInt(argSizes.reduce((p, a) => p * a, 1))
+  }
+}
+
+export const Diff = (_params: Params) => {
+  return (argSizes: number[]) => {
+    if (argSizes.length != 2) {
+      throw new Error(
+        `ArgsDiff cost model can only be used for two arguments, got ${argSizes.length} arguments`
+      )
+    }
+
+    const [x, y] = argSizes
+    const d = BigInt(x - y)
+
+    return d
+  }
+}
+
+export const Constant =
   (constantId: number): Function$ =>
   (params: Params) => {
     const c = getParamOrThrow(params, constantId)
@@ -118,71 +159,12 @@ export const Const =
     return (_argSizes: number[]) => c
   }
 
-export const LargestArg =
-  (slopeId: number, interceptId: number): Function$ =>
+export const ConstantOffDiag =
+  (constantId: number) =>
+  (makeOnDiag: Function$): Function$ =>
   (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
-
-    return (argSizes: number[]) => {
-      const m = BigInt(argSizes.reduce((m, s) => (s > m ? s : m), 0))
-      return m * slope + intercept
-    }
-  }
-
-export const SmallestArg =
-  (slopeId: number, interceptId: number): Function$ =>
-  (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
-
-    return (argSizes: number[]) => {
-      const m = BigInt(
-        argSizes.slice(1).reduce((m, a) => (a < m ? a : m), argSizes[0])
-      )
-
-      return m * slope + intercept
-    }
-  }
-
-export const ArgsSum =
-  (slopeId: number, interceptId: number): Function$ =>
-  (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
-
-    return (argSizes: number[]) => {
-      const s = BigInt(argSizes.reduce((s, a) => s + a, 0))
-
-      return s * slope + intercept
-    }
-  }
-
-export const ArgsProd =
-  (slopeId: number, interceptId: number): Function$ =>
-  (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
-
-    return (argSizes: number[]) => {
-      if (argSizes.length != 2) {
-        throw new Error(
-          `expected only 2 arguments for ArgProd cost model function, got ${argSizes.length}`
-        )
-      }
-
-      const [x, y] = argSizes
-
-      return BigInt(x * y) * slope + intercept
-    }
-  }
-
-export const Diag =
-  (slopeId: number, interceptId: number, constantId: number): Function$ =>
-  (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
     const constant = getParamOrThrow(params, constantId)
+    const calcOnDiag = makeOnDiag(params)
 
     return (argSizes: number[]) => {
       if (argSizes.length != 2) {
@@ -193,25 +175,25 @@ export const Diag =
 
       const [x, y] = argSizes
 
-      if (x == y) {
-        return slope * BigInt(x) + intercept
-      } else {
+      if (x != y) {
         return constant
+      } else {
+        return calcOnDiag(argSizes)
       }
     }
   }
 
-export const ArgsProdBelowDiag =
-  (slopeId: number, interceptId: number, constantId: number): Function$ =>
+export const ConstantBelowDiag =
+  (constantId: number) =>
+  (makeOnAboveDiag: Function$): Function$ =>
   (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
     const constant = getParamOrThrow(params, constantId)
+    const calcOnAboveDiag = makeOnAboveDiag(params)
 
     return (argSizes: number[]) => {
       if (argSizes.length != 2) {
         throw new Error(
-          `expected only 2 arguments for ArgsProdBelowDiag cost model function, got ${argSizes.length}`
+          `expected only 2 arguments for ConstantBelowDiag cost model function, got ${argSizes.length}`
         )
       }
 
@@ -220,85 +202,105 @@ export const ArgsProdBelowDiag =
       if (x < y) {
         return constant
       } else {
-        return BigInt(x * y) * slope + intercept
+        return calcOnAboveDiag(argSizes)
       }
     }
   }
 
-export const ArgsDiff =
-  (_slopeId: number, _interceptId: number, minimumId: number): Function$ =>
+export const First: Function$ = (_params: Params) => {
+  return (argSizes: number[]) => {
+    if (argSizes.length < 1) {
+      throw new Error(
+        `'First' model expected at least one arg, got ${argSizes.length}`
+      )
+    }
+
+    return BigInt(argSizes[0])
+  }
+}
+
+export const Second: Function$ = (_params: Params) => {
+  return (argSizes: number[]) => {
+    if (argSizes.length < 2) {
+      throw new Error(
+        `'Second' model expected at least two args, got ${argSizes.length}`
+      )
+    }
+
+    return BigInt(argSizes[1])
+  }
+}
+
+export const Third: Function$ = (_params: Params) => {
+  return (argSizes: number[]) => {
+    if (argSizes.length < 3) {
+      throw new Error(
+        `'Third' model expected at least three args, got ${argSizes.length}`
+      )
+    }
+
+    return BigInt(argSizes[2])
+  }
+}
+
+export const AtLeast =
+  (minimumId: number) =>
+  (makeX: Function$): Function$ =>
   (params: Params) => {
-    // slope and intercept not used??
-    //const slope = getParamOrThrow(params, slopeId)
-    //const intercept = getParamOrThrow(params, interceptId)
     const minimum = getParamOrThrow(params, minimumId)
+    const calcX = makeX(params)
 
     return (argSizes: number[]) => {
+      const x = calcX(argSizes)
+
+      return x < minimum ? minimum : x
+    }
+  }
+
+export const Linear =
+  (interceptId: number, slopeId: number) =>
+  (makeX: Function$): Function$ =>
+  (params: Params) => {
+    const intercept = getParamOrThrow(params, interceptId)
+    const slope = getParamOrThrow(params, slopeId)
+
+    const calcX = makeX(params)
+
+    return (argSizes: number[]) => {
+      const x = calcX(argSizes)
+
+      return intercept + slope * x
+    }
+  }
+
+export const QuadXY =
+  (coefIds: {
+    c00: number
+    c10: number
+    c01: number
+    c20: number
+    c11: number
+    c02: number
+  }): Function$ =>
+  (params: Params) => {
+    const c00 = getParamOrThrow(params, coefIds.c00)
+    const c10 = getParamOrThrow(params, coefIds.c10)
+    const c01 = getParamOrThrow(params, coefIds.c01)
+    const c20 = getParamOrThrow(params, coefIds.c20)
+    const c11 = getParamOrThrow(params, coefIds.c11)
+    const c02 = getParamOrThrow(params, coefIds.c02)
+
+    return (argSizes: number[]): bigint => {
       if (argSizes.length != 2) {
         throw new Error(
-          `ArgsDiff cost model can only be used for two arguments, got ${argSizes.length} arguments`
+          `expected only 2 arguments for QuadXY cost model function, got ${argSizes.length}`
         )
       }
 
-      const [x, y] = argSizes
-      const d = BigInt(x - y)
+      const x = BigInt(argSizes[0])
+      const y = BigInt(argSizes[1])
 
-      if (d < minimum) {
-        return minimum
-      } else {
-        return d
-      }
-    }
-  }
-
-export const First =
-  (slopeId: number, interceptId: number): Function$ =>
-  (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
-
-    return (argSizes: number[]) => {
-      if (argSizes.length < 1) {
-        throw new Error(
-          `'First' model expected at least one arg, got ${argSizes.length}`
-        )
-      }
-
-      return slope * BigInt(argSizes[0]) + intercept
-    }
-  }
-
-export const Second =
-  (slopeId: number, interceptId: number): Function$ =>
-  (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
-
-    return (argSizes: number[]) => {
-      if (argSizes.length < 2) {
-        throw new Error(
-          `'Second' model expected at least two args, got ${argSizes.length}`
-        )
-      }
-
-      return slope * BigInt(argSizes[1]) + intercept
-    }
-  }
-
-export const Third =
-  (slopeId: number, interceptId: number): Function$ =>
-  (params: Params) => {
-    const slope = getParamOrThrow(params, slopeId)
-    const intercept = getParamOrThrow(params, interceptId)
-
-    return (argSizes: number[]) => {
-      if (argSizes.length < 3) {
-        throw new Error(
-          `'Third' model expected at least three args, got ${argSizes.length}`
-        )
-      }
-
-      return slope * BigInt(argSizes[2]) + intercept
+      return c00 + c10 * x + c01 * y + c20 * x * x + c11 * x * y + c02 * y * y
     }
   }
 

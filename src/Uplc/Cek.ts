@@ -18,9 +18,9 @@ import type {
 import { memSize } from "./Value.js"
 
 export type EvalContext = {
-  builtins: Builtin[]
-  costParams: number[]
-  logger?: Logger
+  builtins: readonly Builtin[]
+  costParams: readonly number[]
+  logger?: Logger | undefined
 }
 
 /**
@@ -29,7 +29,7 @@ export type EvalContext = {
 export interface MachineContext extends EvalContext {
   readonly cost: Cost.Tracker
   //getBuiltin(id: number): Builtin | undefined
-  print(message: string, site?: CallSite | undefined): void
+  print(message: string, site?: CallSite): void
   popLastMessage(): string | undefined
 }
 
@@ -133,9 +133,9 @@ export type Stack = {
 
 export interface Logger {
   lastMessage: string
-  logPrint(message: string, callSite?: CallSite | undefined): void
-  logError?: (message: string, callSite?: CallSite | undefined) => void
-  logTrace?: (message: string, callSite?: CallSite | undefined) => void
+  logPrint(message: string, callSite?: CallSite): void
+  logError?: (message: string, callSite?: CallSite) => void
+  logTrace?: (message: string, callSite?: CallSite) => void
   flush?: () => void
   reset?: (reason: "build" | "validate") => void
 }
@@ -371,7 +371,7 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
   const ctx: MachineContext = {
     ...evalContext,
     cost: tracker,
-    print: (message: string, callSite?: CallSite | undefined) => {
+    print: (message: string, callSite?: CallSite) => {
       logs.push({ message, callSite: callSite ?? undefined })
       evalContext.logger?.logPrint(message, callSite)
     },
@@ -417,7 +417,9 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
           state = computeVarTerm(state as ComputingState<Var>, ctx)
           break
         default:
-          throw new Error(`Unhandled term kind '${(state.term as any)._tag}'`)
+          throw new Error(
+            `Unhandled term kind '${(state.term as unknown as { _tag: string })._tag}'`
+          )
       }
     } else if (state.kind == "reducing") {
       const f: Frame | undefined = state.frames.pop()
@@ -443,7 +445,9 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
             state = reduceRightApplyFrame(f, state, ctx)
             break
           default:
-            throw new Error(`Unhandled frame type ${(f as any)._tag}`)
+            throw new Error(
+              `Unhandled frame type ${(f as unknown as { _tag: string })._tag}`
+            )
         }
       } else {
         state = {
@@ -670,12 +674,12 @@ function computeVarTerm(
   ctx.cost.incrVarCost()
 
   const i: number = stack.values.length - term.index
-  const v: Value = stack.values[i]
+  const v: Value | undefined = stack.values[i]
 
-  if (!v) {
+  if (v === undefined) {
     return {
       kind: "error",
-      message: `var ${term.index} out of stack range (stack has ${stack.values.length} values)${term.name ? `, '${term.name}'` : ""}`,
+      message: `var ${term.index} out of stack range (stack has ${stack.values.length} values)${term.name !== undefined ? `, '${term.name}'` : ""}`,
       stack
     }
   } else {
@@ -694,9 +698,9 @@ function reduceCaseScrutineeFrame(
   if (value._tag == "Constr") {
     const tag = value.tag
 
-    const c = frame.cases[tag]
+    const c: Term | undefined = frame.cases[tag]
 
-    if (!c) {
+    if (c === undefined) {
       return {
         kind: "error",
         message: "constr id out of range",
@@ -801,8 +805,10 @@ function mixStacks(stackWithValues: Stack, stackWithCallSites: Stack): Stack {
  */
 export function isEmptyCallSiteInfo(callSite: CallSite | undefined): boolean {
   return (
-    !callSite ||
-    (!callSite.sourceSpan && !callSite.functionName && !callSite.arguments)
+    callSite === undefined ||
+    (callSite.sourceSpan === undefined &&
+      callSite.functionName === undefined &&
+      callSite.arguments === undefined)
   )
 }
 
@@ -928,9 +934,9 @@ function reduceForceFrame(
       frames
     }
   } else if (value._tag == "Builtin") {
-    const b = ctx.builtins[value.id]
+    const b: Builtin | undefined = ctx.builtins[value.id]
 
-    if (!b) {
+    if (b === undefined) {
       return {
         kind: "error",
         message: `builtin ${value.id} not found`,
@@ -1037,7 +1043,7 @@ function reduceApplyToFrame(
   ctx: MachineContext,
   info: ApplyInfo = {}
 ): State {
-  if (info.argName) {
+  if (info.argName !== undefined) {
     rightValue = {
       ...rightValue,
       name: info.argName
@@ -1063,9 +1069,9 @@ function reduceApplyToFrame(
       frames
     }
   } else if (leftValue._tag == "Builtin") {
-    const b = ctx.builtins[leftValue.id]
+    const b: Builtin | undefined = ctx.builtins[leftValue.id]
 
-    if (!b) {
+    if (b === undefined) {
       return {
         kind: "error",
         message: `builtin ${leftValue.id} not found`,
@@ -1116,7 +1122,7 @@ function reduceApplyToFrame(
         if (callResult._tag == "Left") {
           return {
             kind: "error",
-            message: callResult.left.toString(),
+            message: callResult.left.message ?? callResult.left._tag,
             stack: pushStackCallSites(frameStack, ...callSites)
           }
         } else {

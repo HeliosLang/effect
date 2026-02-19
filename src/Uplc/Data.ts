@@ -53,7 +53,7 @@ export type ListDataJSON = {
   readonly list: ReadonlyArray<DataJSON>
 }
 
-export function makeListData(items: Data[]): ListData {
+export function makeListData(items: readonly Data[]): ListData {
   return {
     list: items
   }
@@ -182,6 +182,34 @@ export function encode(data: Data): number[] {
     return Cbor.encodeMap(data.map.map(({ k, v }) => [encode(k), encode(v)]))
   } else {
     throw new Error("Unrecognized Uplc.Data type")
+  }
+}
+
+export function equals(a: Data, b: Data): boolean {
+  if ("bytes" in a && "bytes" in b) {
+    return Bytes.compare(a.bytes, b.bytes) == 0
+  } else if ("fields" in a && "fields" in b) {
+    return (
+      a.constructor == b.constructor &&
+      a.fields.length == b.fields.length &&
+      a.fields.every((item, i) => equals(item, b.fields[i]))
+    )
+  } else if ("int" in a && "int" in b) {
+    return a.int == b.int
+  } else if ("list" in a && "list" in b) {
+    return (
+      a.list.length == b.list.length &&
+      a.list.every((item, i) => equals(item, b.list[i]))
+    )
+  } else if ("map" in a && "map" in b) {
+    return (
+      a.map.length == b.map.length &&
+      a.map.every(
+        ({ k, v }, i) => equals(k, b.map[i].k) && equals(v, b.map[i].v)
+      )
+    )
+  } else {
+    return false
   }
 }
 
@@ -455,8 +483,12 @@ export const LiteralString = <T extends string>(value: T) => {
   })
 }
 
-const Array$ = <ItemType>(
-  itemSchema: Schema.Schema<ItemType, Schema.Schema.Encoded<typeof Data>>
+const Array$ = <ItemType, ContextType>(
+  itemSchema: Schema.Schema<
+    ItemType,
+    Schema.Schema.Encoded<typeof Data>,
+    ContextType
+  >
 ) =>
   Schema.transformOrFail(Data, Schema.Array(itemSchema), {
     strict: true,
@@ -474,9 +506,17 @@ const Array$ = <ItemType>(
 
 export { Array$ as Array }
 
-export const PairArray = <KeyType, ValueType>(
-  keySchema: Schema.Schema<KeyType, Schema.Schema.Encoded<typeof Data>>,
-  valueSchema: Schema.Schema<ValueType, Schema.Schema.Encoded<typeof Data>>
+export const PairArray = <KeyType, ValueType, KeyContextType, ValueContextType>(
+  keySchema: Schema.Schema<
+    KeyType,
+    Schema.Schema.Encoded<typeof Data>,
+    KeyContextType
+  >,
+  valueSchema: Schema.Schema<
+    ValueType,
+    Schema.Schema.Encoded<typeof Data>,
+    ValueContextType
+  >
 ) =>
   Schema.transformOrFail(
     Data,
@@ -580,7 +620,7 @@ export const StructFromMap = <
   })
 
 export const EnumVariant = <
-  FieldTypes extends { [fieldName: string]: Schema.Schema<any, Data> }
+  FieldTypes extends { [fieldName: string]: Schema.Schema<any, Data, any> }
 >(
   tag: number | bigint,
   fields: FieldTypes
@@ -630,7 +670,9 @@ export const EnumVariant = <
 type EnumUnionTypeInternal<
   VariantName,
   VariantTypes extends {
-    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+    [variantName: string]: {
+      [fieldName: string]: Schema.Schema<any, Data, any>
+    }
   }
 > = VariantName extends string
   ? { _tag: VariantName } & {
@@ -641,13 +683,17 @@ type EnumUnionTypeInternal<
   : never
 type EnumUnionType<
   VariantTypes extends {
-    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+    [variantName: string]: {
+      [fieldName: string]: Schema.Schema<any, Data, any>
+    }
   }
 > = EnumUnionTypeInternal<keyof VariantTypes, VariantTypes>
 type EnumUnionDataInternal<
   VariantName,
   VariantTypes extends {
-    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+    [variantName: string]: {
+      [fieldName: string]: Schema.Schema<any, Data, any>
+    }
   }
 > = VariantName extends string
   ? { _tag: VariantName } & {
@@ -656,13 +702,17 @@ type EnumUnionDataInternal<
   : never
 type EnumUnionData<
   VariantTypes extends {
-    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+    [variantName: string]: {
+      [fieldName: string]: Schema.Schema<any, Data, any>
+    }
   }
 > = EnumUnionDataInternal<keyof VariantTypes, VariantTypes>
 
 export const Enum = <
   VariantTypes extends {
-    [variantName: string]: { [fieldName: string]: Schema.Schema<any, Data> }
+    [variantName: string]: {
+      [fieldName: string]: Schema.Schema<any, Data, any>
+    }
   }
 >(
   variants: VariantTypes
@@ -748,6 +798,91 @@ export const Enum = <
       }
     }
   )
+
+export const Bool = Schema.transform(
+  Enum({
+    False: {},
+    True: {}
+  }),
+  Schema.Boolean,
+  {
+    strict: true,
+    decode: ({ _tag }) => _tag == "True",
+    encode: (b) => ({ _tag: b ? ("True" as const) : ("False" as const) })
+  }
+)
+
+const TimeInTimeRange = Schema.transform(
+  Enum({
+    NegativeInf: {},
+    Finite: {
+      value: Int
+    },
+    PositiveInf: {}
+  }),
+  Schema.Number,
+  {
+    strict: true,
+    decode: (time) => {
+      if (time._tag == "NegativeInf") {
+        return Number.NEGATIVE_INFINITY
+      } else if (time._tag == "PositiveInf") {
+        return Number.POSITIVE_INFINITY
+      } else {
+        return time.value
+      }
+    },
+    encode: (time) => {
+      if (time === Number.NEGATIVE_INFINITY) {
+        return { _tag: "NegativeInf" as const }
+      } else if (time === Number.POSITIVE_INFINITY) {
+        return { _tag: "PositiveInf" as const }
+      } else {
+        return { _tag: "Finite" as const, value: time }
+      }
+    }
+  }
+)
+
+export const TimeRange = Schema.transform(
+  EnumVariant(0, {
+    start: EnumVariant(0, {
+      startTime: TimeInTimeRange,
+      includeStart: Bool
+    }),
+    end: EnumVariant(0, {
+      endTime: TimeInTimeRange,
+      includeEnd: Bool
+    })
+  }),
+  Schema.Struct({
+    start: Schema.Number,
+    end: Schema.Number
+  }),
+  {
+    strict: true,
+    decode: (data) => {
+      return {
+        start: data.start.startTime,
+        end: data.end.endTime
+      }
+    },
+    encode: (timeRange) => {
+      return {
+        start: {
+          startTime: timeRange.start,
+          includeStart: true
+        },
+        end: {
+          endTime: timeRange.end,
+          includeEnd: true
+        }
+      }
+    }
+  }
+)
+
+export type TimeRange = Schema.Schema.Type<typeof TimeRange>
 
 /**
  * Simple recursive algorithm

@@ -1,10 +1,13 @@
-import { Either, Schema } from "effect"
+import { Effect, Either, Option, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
+import { Params } from "../Network"
+import * as Uplc from "../Uplc"
 import * as Address from "./Address.js"
 import * as Assets from "./Assets.js"
 import * as DatumHash from "./DatumHash.js"
 import * as TxOutputDatum from "./TxOutputDatum.js"
+import * as ValidatorHash from "./ValidatorHash.js"
 
 export const TxOutputEncodingConfig = Schema.Struct({
   strictBabbage: Schema.optional(Schema.Boolean)
@@ -18,12 +21,13 @@ export const DEFAULT_TX_OUTPUT_ENCODING_CONFIG: TxOutputEncodingConfig = {
   strictBabbage: true
 }
 
-// TODO: add ref script
 export const TxOutput = Schema.Struct({
   address: Address.Address,
   assets: Assets.Assets,
   datum: Schema.optional(TxOutputDatum.TxOutputDatum),
-  refScript: Schema.optional(Schema.Uint8ArrayFromSelf),
+  refScript: Schema.optional(
+    Schema.Union(Uplc.Script.ScriptV2, Uplc.Script.ScriptV3)
+  ),
   encodingConfig: Schema.optional(
     Schema.Struct({
       strictBabbage: Schema.optional(Schema.Boolean)
@@ -32,6 +36,33 @@ export const TxOutput = Schema.Struct({
 })
 
 export type TxOutput = Schema.Schema.Type<typeof TxOutput>
+
+export const FromUplcData = Schema.transform(
+  Uplc.Data.EnumVariant(0, {
+    address: Address.FromUplcData,
+    assets: Assets.FromUplcData(true),
+    datum: TxOutputDatum.FromUplcData,
+    refScript: Uplc.Data.Option(ValidatorHash.FromUplcData)
+  }),
+  Schema.typeSchema(TxOutput),
+  {
+    strict: true,
+    decode: ({ address, assets, datum }): TxOutput => ({
+      address,
+      assets,
+      datum,
+      refScript: undefined
+    }),
+    encode: ({ address, assets, datum, refScript }: TxOutput) => ({
+      address,
+      assets,
+      datum,
+      refScript: refScript
+        ? Option.some(Uplc.Script.hash(refScript))
+        : Option.none()
+    })
+  }
+)
 
 export function make({
   address,
@@ -43,7 +74,7 @@ export function make({
   address: Address.Address
   assets: Assets.Assets
   datum?: TxOutputDatum.TxOutputDatum
-  refScript?: Uint8Array
+  refScript?: Uplc.Script.Script<2> | Uplc.Script.Script<3>
   encodingConfig?: TxOutputEncodingConfig
 }): TxOutput {
   return {
@@ -63,7 +94,7 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
         0: address,
         1: assets,
         2: datum,
-        3: refScript
+        3: refScriptBytes
       } = yield* Cbor.decodeObjectIKey({
         0: Address.decode,
         1: Assets.decode,
@@ -92,11 +123,58 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
         )
       }
 
+      let refScript: Uplc.Script.Script<2> | Uplc.Script.Script<3> | undefined =
+        undefined
+
+      if (refScriptBytes) {
+        const [scriptType, decodeScript] =
+          yield* Cbor.decodeTagged(refScriptBytes)
+
+        switch (scriptType) {
+          case 0:
+            return yield* Either.left(
+              new Cbor.DecodeError(stream, "unexpected Native ref script")
+            )
+          case 1:
+            return yield* Either.left(
+              new Cbor.DecodeError(
+                stream,
+                "unexpected Uplc ScriptV1 ref script"
+              )
+            )
+          case 2:
+            // apparently tag 2 can also be used for V3 scripts
+            refScript = yield* decodeScript((stream) =>
+              Either.gen(function* () {
+                const { uplcVersion, root } =
+                  yield* Uplc.Script.decodeRoot(stream)
+
+                if (uplcVersion == "1.1.0") {
+                  return { version: 3, root } satisfies Uplc.Script.Script<3>
+                } else {
+                  return { version: 2, root } satisfies Uplc.Script.Script<2>
+                }
+              })
+            )
+            break
+          case 3:
+            refScript = yield* decodeScript(Uplc.Script.decode(3))
+            break
+          default:
+            return yield* Either.left(
+              new Cbor.DecodeError(
+                stream,
+                `unexpected script type ${scriptType}`
+              )
+            )
+        }
+      }
+
       return make({
         address,
         assets,
         ...(datum ? { datum } : {}),
-        ...(refScript ? { refScript: new Uint8Array(refScript) } : {}),
+        ...(refScript ? { refScript } : {}),
         encodingConfig: { strictBabbage: true }
       })
     } else if (Cbor.isTuple(bytes)) {
@@ -120,54 +198,66 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
     }
   })
 
-export function encode(txOutput: TxOutput): number[] {
+export function encode(output: TxOutput): number[] {
   if (
-    (!txOutput.datum || txOutput.datum._tag == "Hash") &&
-    !txOutput.refScript &&
-    (!txOutput.encodingConfig ||
-      txOutput.encodingConfig.strictBabbage == null ||
-      !txOutput.encodingConfig.strictBabbage)
+    (!output.datum || output.datum._tag == "Hash") &&
+    !output.refScript &&
+    (!output.encodingConfig ||
+      output.encodingConfig.strictBabbage == null ||
+      !output.encodingConfig.strictBabbage)
   ) {
     // this is needed to match eternl wallet (de)serialization (annoyingly eternl deserializes the tx and then signs its own serialization)
     // hopefully cardano-cli signs whatever serialization we choose (so we use the eternl variant in order to be compatible with both)
 
     const fields = [
-      Address.encode(txOutput.address),
-      Assets.encode(txOutput.assets)
+      Address.encode(output.address),
+      Assets.encode(output.assets)
     ]
 
-    if (txOutput.datum && txOutput.datum._tag == "Hash") {
-      fields.push(DatumHash.encode(txOutput.datum.hash))
+    if (output.datum && output.datum._tag == "Hash") {
+      fields.push(DatumHash.encode(output.datum.hash))
     }
 
     return Cbor.encodeTuple(fields)
   } else {
     const object: Map<number, number[]> = new Map()
 
-    object.set(0, Address.encode(txOutput.address))
-    object.set(1, Assets.encode(txOutput.assets))
+    object.set(0, Address.encode(output.address))
+    object.set(1, Assets.encode(output.assets))
 
-    if (txOutput.datum) {
-      object.set(2, TxOutputDatum.encode(txOutput.datum))
+    if (output.datum) {
+      object.set(2, TxOutputDatum.encode(output.datum))
     }
 
-    if (txOutput.refScript) {
-      throw new Error("not yet implemented")
-      //object.set(
-      //    3,
-      //    Cbor.encodeTag(24n).concat(
-      //        Cbor.encodeBytes(
-      //            Cbor.encodeTuple([
-      //                Cbor.encodeInt(
-      //                    BigInt(this.refScript.plutusVersionTag)
-      //                ),
-      //                txOutput.refScript
-      //            ])
-      //        )
-      //    )
-      //)
+    if (output.refScript) {
+      object.set(
+        3,
+        Cbor.encodeTag(24n).concat(
+          Cbor.encodeBytes(
+            Cbor.encodeTuple([
+              Cbor.encodeInt(BigInt(output.refScript.version)),
+              Uplc.Script.encode(output.refScript)
+            ])
+          )
+        )
+      )
     }
 
     return Cbor.encodeObjectIKey(object)
   }
 }
+
+export const minLovelace = (output: TxOutput) =>
+  Params.params.pipe(
+    Effect.map((p) => {
+      const lovelacePerByte = p.utxoDepositPerByte
+
+      // 160 accounts for some database overhead?
+      const correctedSize = encode(output).length + 160
+
+      return BigInt(correctedSize) * BigInt(lovelacePerByte)
+    })
+  )
+
+export const sumAssets = (...outputs: TxOutput[]) =>
+  Assets.sum(...outputs.map((output) => output.assets))

@@ -39,6 +39,11 @@ export const Redeemer = Schema.Union(Minting, Spending, Rewarding, Certifying)
 
 export type Redeemer = Schema.Schema.Type<typeof Redeemer>
 
+/**
+ * @param a
+ * @param b
+ * @returns
+ */
 export function compare(a: Redeemer, b: Redeemer): number {
   switch (a._tag) {
     case "Spending":
@@ -52,6 +57,9 @@ export function compare(a: Redeemer, b: Redeemer): number {
         case "Rewarding":
           return 0 - 3
       }
+
+      // needed to avoid linting errors
+      break
     case "Minting":
       switch (b._tag) {
         case "Spending":
@@ -63,6 +71,9 @@ export function compare(a: Redeemer, b: Redeemer): number {
         case "Rewarding":
           return 1 - 3
       }
+
+      // needed to avoid linting errors
+      break
     case "Certifying":
       switch (b._tag) {
         case "Spending":
@@ -74,6 +85,9 @@ export function compare(a: Redeemer, b: Redeemer): number {
         case "Rewarding":
           return 2 - 3
       }
+
+      // needed to avoid linting errors
+      break
     case "Rewarding":
       switch (b._tag) {
         case "Spending":
@@ -85,6 +99,9 @@ export function compare(a: Redeemer, b: Redeemer): number {
         case "Rewarding":
           return a.withdrawalIndex - b.withdrawalIndex
       }
+
+      // needed to avoid linting errors
+      break
   }
 }
 

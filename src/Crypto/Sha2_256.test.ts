@@ -52,14 +52,12 @@ describe("Crypto.Sha2_256.hash", () => {
     )
   })
 
-  Promise.all(
-    testVector.map(([msg, hash]) =>
-      it(`returns #${hash} for "${msg}"`, async () => {
-        expect(
-          Bytes.toHex(await Effect.runPromise(Sha2_256.hash(Utf8.encode(msg))))
-        ).toBe(hash)
-      })
-    )
+  testVector.forEach(([msg, hash]) =>
+    it(`returns #${hash} for "${msg}"`, async () => {
+      expect(
+        Bytes.toHex(await Effect.runPromise(Sha2_256.hash(Utf8.encode(msg))))
+      ).toBe(hash)
+    })
   )
 })
 
@@ -78,16 +76,14 @@ describe("Crypto.Sha2_256.hashWebCrypto", () => {
     )
   })
 
-  Promise.all(
-    testVector.map(([msg, hash]) =>
-      it(`returns #${hash} for "${msg}"`, async () => {
-        expect(
-          Bytes.toHex(
-            await Effect.runPromise(Sha2_256.hashWebCrypto(Utf8.encode(msg)))
-          )
-        ).toBe(hash)
-      })
-    )
+  testVector.forEach(([msg, hash]) =>
+    it(`returns #${hash} for "${msg}"`, async () => {
+      expect(
+        Bytes.toHex(
+          await Effect.runPromise(Sha2_256.hashWebCrypto(Utf8.encode(msg)))
+        )
+      ).toBe(hash)
+    })
   )
 })
 

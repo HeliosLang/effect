@@ -33,3 +33,7 @@ export const decode = (bytes: Bytes.BytesLike): DecodeResult<PubKey> =>
 export function encode(pkh: PubKey): number[] {
   return encodeBytes(pkh)
 }
+
+export const dummy: PubKey = Encoding.encodeHex(
+  new Uint8Array(new Array(32).fill(0))
+) as PubKey

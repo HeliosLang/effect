@@ -166,7 +166,7 @@ export function flatSize(v: Value): number {
     )
   } else {
     throw new Error(
-      `unhandled value kind in Uplc.Value.flatSize() (got: ${v as unknown})`
+      `unhandled value kind in Uplc.Value.flatSize() (got: ${v as unknown as any})`
     )
   }
 }
@@ -188,7 +188,7 @@ export function memSize(v: Value): number {
     return v.items.reduce((prev, item) => prev + memSize(item), 0)
   } else {
     throw new Error(
-      `unhandled value kind in Uplc.Value.memSize() (got: ${v as unknown})`
+      `unhandled value kind in Uplc.Value.memSize() (got: ${v as unknown as any})`
     )
   }
 }
@@ -227,7 +227,7 @@ export const toFlat =
       w.writeListNil()
     } else {
       throw new Error(
-        `unhandled value kind in Uplc.Value.toFlat() (got: ${v as unknown})`
+        `unhandled value kind in Uplc.Value.toFlat() (got: ${v as unknown as any})`
       )
     }
   }
@@ -363,7 +363,11 @@ function makeTypedListDecoder(
     while (r.readBool()) {
       const item = itemDecoder.right()
 
-      if (item) items.push()
+      if (item._tag == "Left") {
+        return Either.left(item.left)
+      }
+
+      items.push(item.right)
     }
 
     return Either.right({ items, itemType })
@@ -415,7 +419,7 @@ export function toString(v: Value): string {
     }
   } else {
     throw new Error(
-      `unhandled value kind in Uplc.Value.toString() (got: ${v as unknown})`
+      `unhandled value kind in Uplc.Value.toString() (got: ${v as unknown as any})`
     )
   }
 }
@@ -439,7 +443,7 @@ export function toType(v: Value): Type.Type {
     return Type.List(v.itemType)
   } else {
     throw new Error(
-      `unhandled value kind in Uplc.Value.toType() (got: ${v as unknown})`
+      `unhandled value kind in Uplc.Value.toType() (got: ${v as unknown as any})`
     )
   }
 }

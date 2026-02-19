@@ -1,40 +1,36 @@
-import { Effect, Either, Encoding, Option, Schema } from "effect"
+import { Either, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
-import { Data } from "../Uplc"
+import * as Data from "../Uplc/Data.js"
 import * as ValidatorHash from "./ValidatorHash.js"
 
-// None is used for ADA
-export const MintingPolicy = Schema.Option(ValidatorHash.ValidatorHash)
+export function isValid(mph: string): mph is MintingPolicy {
+  const n = mph.length
+
+  if (n == 0) {
+    return true
+  } else {
+    return /^[0-9a-fA-F]+$/.test(mph) && n == 56
+  }
+}
+
+export const MintingPolicy = Schema.String.pipe(
+  Schema.filter(
+    (mph: string) => isValid(mph) || "Invalid Cardano MintingPolicy"
+  ),
+  Schema.brand("MintingPolicy")
+)
 
 export type MintingPolicy = Schema.Schema.Type<typeof MintingPolicy>
 
 export const FromUplcData = Schema.transform(Data.ByteArray, MintingPolicy, {
   strict: true,
-  decode: (bs) => {
-    if (bs.length == 0) {
-      return Option.none()
-    } else {
-      return Option.some(Encoding.encodeHex(bs))
-    }
-  },
-  encode: (opt) => {
-    if (opt._tag == "None") {
-      return new Uint8Array()
-    } else {
-      return Effect.runSync(Encoding.decodeHex(opt.value))
-    }
-  }
+  decode: Encoding.encodeHex,
+  encode: Bytes.toUint8Array
 })
 
 export function make(policy: Bytes.BytesLike) {
-  const p = Bytes.toHex(policy)
-
-  if (p.length == 0) {
-    return Either.right(Option.none())
-  } else {
-    return ValidatorHash.make(p).pipe(Either.map(Option.some))
-  }
+  return Schema.decodeEither(MintingPolicy)(Bytes.toHex(policy))
 }
 
 export const decode = (
@@ -52,9 +48,13 @@ export const decode = (
   )
 
 export function encode(policy: MintingPolicy): number[] {
-  if (policy._tag == "None") {
-    return Cbor.encodeBytes([])
-  } else {
-    return Cbor.encodeBytes(policy.value)
+  return Cbor.encodeBytes(policy)
+}
+
+export function hash(policy: MintingPolicy): ValidatorHash.ValidatorHash {
+  if (policy == "") {
+    throw new Error("can't convert Ada policy to hash")
   }
+
+  return policy as string as ValidatorHash.ValidatorHash
 }

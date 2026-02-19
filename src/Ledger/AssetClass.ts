@@ -1,8 +1,7 @@
-import { Encoding, Option, Schema } from "effect"
+import { Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import { Data } from "../Uplc"
 import * as MintingPolicy from "./MintingPolicy.js"
-import * as ValidatorHash from "./ValidatorHash.js"
 
 export function isValid(assetClass: string): assetClass is AssetClass {
   const n = assetClass.length
@@ -35,10 +34,16 @@ export function make(
   policy: MintingPolicy.MintingPolicy,
   tokenName: Bytes.BytesLike
 ) {
-  if (policy._tag == "None") {
+  if (policy == "") {
+    if (Bytes.toArray(tokenName).length != 0) {
+      throw new Error(
+        "Unexpected tokenName for ADA policy in AssetClass.make()"
+      )
+    }
+
     return ADA
   } else {
-    return (policy.value +
+    return (policy +
       Encoding.encodeHex(Bytes.toUint8Array(tokenName))) as AssetClass
   }
 }
@@ -52,10 +57,16 @@ export const FromUplcData = Schema.transform(
   {
     strict: true,
     decode: ({ policy, tokenName }) => {
-      if (policy._tag == "None") {
+      if (policy == "") {
+        if (tokenName.length != 0) {
+          throw new Error(
+            "Unexpected tokenName for ADA policy in AssetClass.FromUplcData.decode()"
+          )
+        }
+
         return ADA
       } else {
-        return policy.value + Encoding.encodeHex(tokenName)
+        return policy + Encoding.encodeHex(tokenName)
       }
     },
     encode: (assetClass) => {
@@ -77,9 +88,9 @@ export function pretty(assetClass: string): string {
 
 export function policy(assetClass: string): MintingPolicy.MintingPolicy {
   if (assetClass.length == 0) {
-    return Option.none()
+    return "" as MintingPolicy.MintingPolicy
   } else {
-    return Option.some(assetClass.slice(0, 56) as ValidatorHash.ValidatorHash)
+    return assetClass.slice(0, 56) as MintingPolicy.MintingPolicy
   }
 }
 

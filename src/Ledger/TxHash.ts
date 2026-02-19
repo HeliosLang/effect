@@ -26,6 +26,12 @@ export const FromUplcData = Schema.transform(
   }
 )
 
+export const FromUplcDataV3 = Schema.transform(Data.Hex, TxHash, {
+  strict: true,
+  decode: (hex) => hex,
+  encode: (hex) => hex
+})
+
 export function make(txId: Bytes.BytesLike) {
   return Schema.decodeEither(TxHash)(Bytes.toHex(txId))
 }
@@ -44,4 +50,8 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxHash> =>
 
 export function encode(txId: TxHash): number[] {
   return Cbor.encodeBytes(txId)
+}
+
+export function compare(a: TxHash, b: TxHash): number {
+  return Bytes.compare(a, b)
 }

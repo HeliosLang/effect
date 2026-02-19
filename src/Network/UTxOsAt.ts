@@ -1,9 +1,9 @@
 import { Context, Effect } from "effect"
-import { Address } from "../Ledger/Address.js"
-import { UTxO } from "../Ledger/UTxO.js"
+import type { Address } from "../Ledger/Address.js"
+import type { UTxO } from "../Ledger/UTxO.js"
 import { ConnectionError, UnexpectedFormat } from "./errors"
 
-export class UTxOsAt extends Context.Tag("NetworkUTxOsAt")<
+export class UTxOsAt extends Context.Tag("Network.UTxOsAt")<
   UTxOsAt,
   (
     address: Address

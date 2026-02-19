@@ -50,7 +50,7 @@ export function hashSync(bytes: Bytes.BytesLike, digestSize = 32): Uint8Array {
     const chunkEnd = chunkStart + WIDTH // exclusive
     const chunk = bs.slice(chunkStart, chunkStart + WIDTH)
 
-    const chunk64 = new Array(WIDTH / 8)
+    const chunk64 = new Array(WIDTH / 8) as Uint64.Uint64[]
 
     for (let i = 0; i < WIDTH; i += 8) {
       chunk64[i / 8] = Uint64.fromBytes(chunk.slice(i, i + 8))

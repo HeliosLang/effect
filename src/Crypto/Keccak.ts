@@ -28,7 +28,7 @@ export function hashSync(
   /**
    * Initialize the state
    */
-  const state: Uint64.Uint64[] = new Array(WIDTH / 8).fill(Uint64.Zero)
+  const state = new Array(WIDTH / 8).fill(Uint64.Zero) as Uint64.Uint64[]
 
   for (let chunkStart = 0; chunkStart < bytes.length; chunkStart += RATE) {
     // extend the chunk to become length WIDTH
@@ -160,8 +160,8 @@ function pad(src: number[], padByte: number): number[] {
  * @param s
  */
 function permute(s: Uint64.Uint64[]) {
-  const c: Uint64.Uint64[] = new Array(5)
-  const b: Uint64.Uint64[] = new Array(25)
+  const c = new Array(5) as Uint64.Uint64[]
+  const b = new Array(25) as Uint64.Uint64[]
 
   for (let round = 0; round < 24; round++) {
     for (let i = 0; i < 5; i++) {

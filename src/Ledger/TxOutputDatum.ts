@@ -1,7 +1,7 @@
 import { Either, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
-import { Data } from "../Uplc"
+import * as Data from "../Uplc/Data.js"
 import * as DatumHash from "./DatumHash.js"
 
 export const TxOutputDatum = Schema.Union(
@@ -10,6 +10,44 @@ export const TxOutputDatum = Schema.Union(
 )
 
 export type TxOutputDatum = Schema.Schema.Type<typeof TxOutputDatum>
+
+export const FromUplcData = Schema.transform(
+  Data.Enum({
+    None: {},
+    Hash: {
+      hash: DatumHash.FromUplcData
+    },
+    Inline: {
+      data: Schema.typeSchema(Data.Data)
+    }
+  }),
+  Schema.Union(TxOutputDatum, Schema.Undefined),
+  {
+    strict: true,
+    decode: (data) => {
+      if (data._tag == "None") {
+        return undefined
+      } else {
+        return data
+      }
+    },
+    encode: (datum) => {
+      if (datum === undefined) {
+        return { _tag: "None" as const }
+      } else if (datum._tag == "Inline") {
+        return {
+          _tag: "Inline" as const,
+          data: datum.data
+        }
+      } else {
+        return {
+          _tag: "Hash" as const,
+          hash: datum.hash as DatumHash.DatumHash
+        }
+      }
+    }
+  }
+)
 
 export const decode = (
   bytes: Bytes.BytesLike

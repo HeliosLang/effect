@@ -26,11 +26,11 @@ export const hash = (
 export const hashWebCrypto = (
   bytes: Bytes.BytesLike
 ): Effect.Effect<Uint8Array, Error | NativeUnavailable> => {
-  if (globalThis.crypto?.subtle) {
+  if (globalThis.crypto?.subtle !== undefined) {
     return Effect.tryPromise({
       try: () =>
         globalThis.crypto.subtle.digest("SHA-512", Bytes.toUint8Array(bytes)),
-      catch: (e) => new Error(`${e}`)
+      catch: (e) => new Error(`${(e as Error).message}`)
     }).pipe(Effect.map((buffer: ArrayBuffer) => new Uint8Array(buffer)))
   } else {
     return Effect.fail(new NativeUnavailable("SHA-512"))
@@ -47,7 +47,7 @@ export const hashNode = (
 ): Effect.Effect<Uint8Array, Error | NativeUnavailable> => {
   return Effect.tryPromise({
     try: () => import("crypto"),
-    catch: (e) => new NativeUnavailable("SHA-512")
+    catch: (_e) => new NativeUnavailable("SHA-512")
   }).pipe(
     Effect.flatMap((m) =>
       Effect.sync(() =>
@@ -72,7 +72,7 @@ export function hashSync(bytes: Bytes.BytesLike): Uint8Array {
   for (let chunkStart = 0; chunkStart < bs.length; chunkStart += 128) {
     const chunk = bs.slice(chunkStart, chunkStart + 128)
 
-    const w: number[] = new Array(160).fill(0) // array of 32 bit numbers!
+    const w = new Array(160).fill(0) as number[] // array of 32 bit numbers!
 
     // copy chunk into first 16 hi/lo positions of w (i.e. into first 32 uint32 positions)
     for (let i = 0; i < 32; i += 2) {
@@ -163,7 +163,7 @@ export function hashSync(bytes: Bytes.BytesLike): Uint8Array {
       const chl = ((el & fl) ^ (~el & gl)) >>> 0
 
       let temp1l = hl + S1l + chl + K[i + 1] + w[i + 1]
-      let temp1h =
+      const temp1h =
         (hh + S1h + chh + K[i] + w[i] + Math.floor(temp1l / 4294967296)) >>> 0
       temp1l = temp1l >>> 0
 

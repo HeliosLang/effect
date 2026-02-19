@@ -156,10 +156,10 @@ export const decodeBytes = (bytes: Bytes.BytesLike): DecodeResult<number[]> => {
  * cbor bytes
  */
 export function encodeBytes(
-  bytes: string | number[] | Uint8Array,
+  bs: string | readonly number[] | Uint8Array,
   splitIntoChunks: boolean = false
 ): number[] {
-  bytes = Bytes.toArray(bytes).slice()
+  const bytes = Bytes.toArray(bs).slice()
 
   if (bytes.length <= 64 || !splitIntoChunks) {
     const head = encodeDefHead(2, BigInt(bytes.length))
@@ -285,10 +285,8 @@ export const decodeConstr =
               )
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
             return decoder(itemStream)
           } else {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
             return fieldDecoder(itemStream)
           }
         }
@@ -845,6 +843,10 @@ export const decodeInt = (bytes: Bytes.BytesLike): DecodeResult<bigint> => {
   )
 }
 
+export const decodeIntAsNumber = (
+  bytes: Bytes.BytesLike
+): DecodeResult<number> => decodeInt(bytes).pipe(Either.map(Number))
+
 const decodeIntInternal = (
   stream: Bytes.Stream,
   nBytes: number | undefined = undefined
@@ -973,7 +975,7 @@ export const decodeList =
     }
   }
 
-const decodeIndefListLazy = <T>(stream: Bytes.Stream) =>
+const decodeIndefListLazy = (stream: Bytes.Stream) =>
   Either.gen(function* () {
     let i = 0
     let done = false
@@ -1006,7 +1008,7 @@ const decodeIndefListLazy = <T>(stream: Bytes.Stream) =>
     return decodeItem
   })
 
-const decodeDefListLazy = <T>(stream: Bytes.Stream) =>
+const decodeDefListLazy = (stream: Bytes.Stream) =>
   Either.gen(function* () {
     let i = 0
     let done = false
@@ -1045,7 +1047,7 @@ const decodeDefListLazy = <T>(stream: Bytes.Stream) =>
 
 /**
  * @param bytes
- * @returnsW
+ * @returns
  */
 export const decodeListLazy = (
   bytes: Bytes.BytesLike
@@ -1478,6 +1480,52 @@ export const isNull = (bytes: Bytes.BytesLike): boolean => {
 }
 
 /**
+ * @template T
+ * @param decodeSome
+ * @returns
+ */
+export const decodeNullOption =
+  <T>(decodeSome: Decoder<T>) =>
+  (bytes: Bytes.BytesLike): DecodeResult<T | undefined> => {
+    const stream = Bytes.makeStream(bytes)
+
+    if (isNull(stream)) {
+      return decodeNull(stream).pipe(Either.map(() => undefined))
+    } else {
+      return decodeSome(stream)
+    }
+  }
+
+/**
+ * @param option
+ * @returns
+ */
+export function encodeNullOption(option: number[] | undefined): number[] {
+  return option ?? encodeNull()
+}
+
+/**
+ * @template T
+ * @param bytes
+ * @param decodeSome
+ * @returns
+ */
+export const decodeListOption =
+  <T>(decodeSome: Decoder<T>) =>
+  (bytes: Bytes.BytesLike): DecodeResult<T | undefined> =>
+    decodeListLazyOption(bytes).pipe(
+      Either.flatMap((decodeItem) => decodeItem(decodeSome))
+    )
+
+/**
+ * @param option
+ * @returns
+ */
+export function encodeListOption(option: number[] | undefined): number[] {
+  return encodeList(option ? [option] : [])
+}
+
+/**
  * Decodes a CBOR encoded object with integer keys.
  * For each field a decoder is called which takes the field index and the field bytes as arguments.
  * @template Decoders
@@ -1643,7 +1691,7 @@ export const decodeSet =
         return Either.left(
           new DecodeError(
             stream,
-            `expected tag ${SET_TAG} for set, got tag ${tag}`
+            `expected tag ${SET_TAG} for set, got tag ${tag.right}`
           )
         )
       }

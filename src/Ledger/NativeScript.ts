@@ -1,7 +1,9 @@
-import { Either, Schema } from "effect"
+import { Either, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import * as Cbor from "../Cbor.js"
+import * as Crypto from "../Crypto"
 import * as PubKeyHash from "./PubKeyHash.js"
+import * as ValidatorHash from "./ValidatorHash.js"
 
 export const After = Schema.Struct({
   type: Schema.Literal("after"),
@@ -193,6 +195,14 @@ export function encode(script: NativeScript): number[] {
     case "before":
       return Cbor.encodeTuple([Cbor.encodeInt(5), Cbor.encodeInt(script.slot)])
   }
+}
+
+export function hash(script: NativeScript): ValidatorHash.ValidatorHash {
+  const bytes = encode(script)
+  bytes.unshift(0)
+  return Encoding.encodeHex(
+    Crypto.Blake2b.hashSync(bytes, 28)
+  ) as ValidatorHash.ValidatorHash
 }
 
 // simple recursive algorithm

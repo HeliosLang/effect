@@ -1,6 +1,5 @@
 import { Context, Effect, Schema } from "effect"
 import * as UTxORef from "../Ledger/UTxORef.js"
-import { ConnectionError, UnexpectedFormat } from "./errors.js"
 
 /**
  * The raw JSON can be downloaded from the following CDN locations:
@@ -32,7 +31,7 @@ export const Params = Schema.Struct({
   maxTxSize: Schema.Number,
   secondsPerSlot: Schema.Number,
   stakeAddrDeposit: Schema.Number,
-  refTopSlot: Schema.Number,
+  refTipSlot: Schema.Number,
   refTipTime: Schema.Number,
   costModelParamsV1: Schema.Array(Schema.Number),
   costModelParamsV2: Schema.Array(Schema.Number),
@@ -42,7 +41,45 @@ export const Params = Schema.Struct({
 
 export type Params = Schema.Schema.Type<typeof Params>
 
-export class Fetch extends Context.Tag("NetworkParamsFetch")<
-  Fetch,
-  () => Effect.Effect<Params, ConnectionError | UnexpectedFormat, never>
+export class params extends Context.Tag("Network.Params.params")<
+  params,
+  Params
 >() {}
+
+/**
+ * Calculates the time (in milliseconds in 01/01/1970) associated with a given slot number.
+ */
+export const slotToTime = (slot: number) =>
+  params.pipe(
+    Effect.map((p) => {
+      const slotDiff = slot - p.refTipSlot
+
+      return p.refTipTime + slotDiff * p.secondsPerSlot * 1000
+    })
+  )
+
+/**
+ * Calculates the slot number associated with a given time. Time is specified as milliseconds since 01/01/1970.
+ */
+export const timeToSlot = (time: number) =>
+  params.pipe(
+    Effect.map((p) => {
+      const timeDiff = time - p.refTipTime
+
+      return p.refTipSlot + Math.round(timeDiff / (1000 * p.secondsPerSlot))
+    })
+  )
+
+export const costModel = (version: 1 | 2 | 3) =>
+  params.pipe(
+    Effect.map((p) => {
+      switch (version) {
+        case 1:
+          return p.costModelParamsV1
+        case 2:
+          return p.costModelParamsV2
+        case 3:
+          return p.costModelParamsV3
+      }
+    })
+  )

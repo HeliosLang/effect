@@ -31,21 +31,21 @@ export const FromUplcData = Schema.transformOrFail(
     spendingCredential: Credential.FromUplcData,
     stakingCredential: Data.Option(Credential.FromUplcData)
   }),
-  Address,
+  Schema.typeSchema(Address),
   {
     strict: true,
     decode: (data) =>
-      Effect.gen(function* () {
-        const isMainnet = yield* IsMainnet
-
-        return make(
-          isMainnet,
-          data.spendingCredential,
-          data.stakingCredential._tag == "Some"
-            ? data.stakingCredential.value
-            : undefined
+      IsMainnet.pipe(
+        Effect.map((isMainnet) =>
+          make(
+            isMainnet,
+            data.spendingCredential,
+            data.stakingCredential._tag == "Some"
+              ? data.stakingCredential.value
+              : undefined
+          )
         )
-      }),
+      ),
     encode: (address) => {
       const { spendingCredential, stakingCredential } = Effect.runSync(
         decodeInternal(address)
@@ -67,7 +67,7 @@ export function make(
   stakingCredential?: Credential.Credential
 ): Address {
   const prefix = isMainnet ? "addr" : "addr_test"
-  const bytes: number[] = toShelleyBytes(
+  const bytes: number[] = makeShelleyBytes(
     isMainnet,
     spendingCredential,
     stakingCredential
@@ -79,7 +79,7 @@ export function make(
 }
 
 // returns the byte representation of an Address
-function toShelleyBytes(
+function makeShelleyBytes(
   isMainnet: boolean,
   spendingCredential: Credential.Credential,
   stakingCredential?: Credential.Credential
@@ -230,7 +230,7 @@ export function encode(address: Address): number[] {
 }
 
 export function bytes(address: Address): number[] {
-  return Effect.runSync(Bech32.decode(address)).bytes
+  return Either.getOrThrow(Bech32.decode(address)).bytes
 }
 
 export function isMainnet(address: Address): boolean {
@@ -238,11 +238,15 @@ export function isMainnet(address: Address): boolean {
 }
 
 export function spendingCredential(address: Address): Credential.Credential {
-  return Effect.runSync(decodeInternal(address)).spendingCredential
+  return Either.getOrThrow(decodeInternal(address)).spendingCredential
 }
 
 export function stakingCredential(
   address: Address
 ): Credential.Credential | undefined {
-  return Effect.runSync(decodeInternal(address)).stakingCredential
+  return Either.getOrThrow(decodeInternal(address)).stakingCredential
+}
+
+export function isValidator(address: Address): boolean {
+  return spendingCredential(address)._tag == "Validator"
 }

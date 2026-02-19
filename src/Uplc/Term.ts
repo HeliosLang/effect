@@ -398,7 +398,7 @@ export const decode =
       }
     }
 
-    if (!term) {
+    if (term === undefined) {
       return Either.left(new Error("term decoding failed"))
     }
 
@@ -468,8 +468,8 @@ export const encode =
             ) {
               throw new Error("not yet implemented")
             } else {
-              ;(w.writeTermTag(ConstTag),
-                w.writeTypeBits(Value.toType(t.value)))
+              w.writeTermTag(ConstTag)
+              w.writeTypeBits(Value.toType(t.value))
               Value.toFlat(w)(t.value)
             }
             break
@@ -534,7 +534,7 @@ export function toString(term: Term): string {
       return `(force ${toString(term.arg)})`
     case "Lambda":
       return `(lam ${
-        term.argName ? `${term.argName} ` : ""
+        term.argName !== undefined ? `${term.argName} ` : ""
       }${toString(term.body)})`
     case "Var":
       return term.name ?? `x${term.index}`

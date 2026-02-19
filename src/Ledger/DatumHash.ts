@@ -1,6 +1,7 @@
 import { Either, Encoding, Schema } from "effect"
 import * as Bytes from "../internal/Bytes.js"
 import { decodeBytes, DecodeResult, encodeBytes } from "../Cbor.js"
+import * as Crypto from "../Crypto"
 import { Data } from "../Uplc"
 
 export function isValid(dh: string): boolean {
@@ -33,4 +34,10 @@ export const decode = (bytes: Bytes.BytesLike): DecodeResult<DatumHash> =>
 
 export function encode(dh: DatumHash): number[] {
   return encodeBytes(dh)
+}
+
+export function hash(d: Data.Data): DatumHash {
+  return Encoding.encodeHex(
+    Crypto.Blake2b.hashSync(Data.encode(d))
+  ) as DatumHash
 }
