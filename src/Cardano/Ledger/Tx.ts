@@ -1,0 +1,814 @@
+import { Effect, Either, Encoding } from "effect"
+import * as Bytes from "../../Codecs/Bytes.js"
+import * as Cbor from "../../Codecs/Cbor.js"
+import * as Crypto from "../../Crypto"
+import * as Params from "../Network/Params.js"
+import { Data, Script } from "../Uplc"
+import * as Address from "./Address.js"
+import * as Assets from "./Assets.js"
+import * as DCert from "./DCert.js"
+import * as NativeScript from "./NativeScript.js"
+import * as PubKeyHash from "./PubKeyHash.js"
+import * as Redeemer from "./Redeemer.js"
+import * as RewardAddress from "./RewardAddress.js"
+import * as Signature from "./Signature.js"
+import * as TxHash from "./TxHash.js"
+import * as TxOutput from "./TxOutput.js"
+import * as UTxO from "./UTxO.js"
+import * as DatumHash from "./DatumHash.js"
+
+/**
+ * Schemas don't make much sense here, because txs will only be (de)serialized using CBOR
+ */
+export interface Tx {
+  readonly body: Body
+  readonly witnesses: Witnesses
+  readonly metadata?: Metadata | undefined
+
+  /**
+   * TODO: should this be generalized to "Unbalanced" | "Balanced" | "Valid" ?
+   */
+  readonly isValid: boolean
+}
+
+export interface Body {
+  readonly inputs: readonly UTxO.UTxO[]
+  readonly outputs: readonly TxOutput.TxOutput[]
+  readonly fee: bigint
+  readonly firstValidSlot?: number | undefined
+  readonly lastValidSlot?: number | undefined
+  readonly dcerts: readonly DCert.DCert[]
+  readonly withdrawals: readonly [RewardAddress.RewardAddress, bigint][]
+  readonly minted: Assets.Assets
+  readonly scriptDataHash?: readonly number[] | undefined
+  readonly collateral: readonly UTxO.UTxO[]
+  readonly signers: readonly PubKeyHash.PubKeyHash[]
+  readonly collateralReturn?: TxOutput.TxOutput | undefined
+  readonly totalCollateral: bigint
+  readonly refInputs: readonly UTxO.UTxO[]
+  readonly metadataHash?: readonly number[] | undefined
+  readonly encoding?: BodyEncoding | undefined
+}
+
+export interface BodyEncoding {
+  /**
+   * Defaults to true
+   */
+  inputsAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  dcertsAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  collateralInputsAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  signersAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  refInputsAsSet?: boolean | undefined
+}
+
+export interface Witnesses {
+  readonly signatures: readonly Signature.Signature[]
+  readonly datums: readonly Data.Data[]
+  readonly redeemers: readonly Redeemer.Redeemer[]
+  readonly nativeScripts: readonly NativeScript.NativeScript[]
+  readonly v1Scripts: readonly Script.Script<1>[]
+  readonly v2Scripts: readonly Script.Script<2>[]
+  readonly v3Scripts: readonly Script.Script<3>[]
+  readonly v2RefScripts: readonly Script.Script<2>[]
+  readonly v3RefScripts: readonly Script.Script<3>[]
+  readonly encoding?: WitnessesEncoding | undefined
+}
+
+export interface WitnessesEncoding {
+  /**
+   * Defaults to true
+   */
+  signaturesAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  datumsAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  nativeScriptsAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  v1ScriptsAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  v2ScriptsAsSet?: boolean | undefined
+
+  /**
+   * Defaults to true
+   */
+  v3ScriptsAsSet?: boolean | undefined
+}
+
+export type Metadata = Record<number, MetadataAttr>
+
+export type MetadataAttr =
+  | string
+  | number
+  | readonly MetadataAttr[]
+  | Readonly<{ [key: string]: MetadataAttr }> // the standard permits maps with arbitrary keys, but limiting this to string keys is probably good enough for now
+
+/**
+ * Used as a starting point for tx building
+ */
+export const empty: Tx = {
+  body: {
+    inputs: [],
+    outputs: [],
+    fee: 0n,
+    dcerts: [],
+    withdrawals: [],
+    minted: {},
+    collateral: [],
+    signers: [],
+    totalCollateral: 0n,
+    refInputs: []
+  },
+  witnesses: {
+    signatures: [],
+    datums: [],
+    redeemers: [],
+    nativeScripts: [],
+    v1Scripts: [],
+    v2Scripts: [],
+    v3Scripts: [],
+    v2RefScripts: [],
+    v3RefScripts: []
+  },
+  isValid: false
+}
+
+export const decode =
+  (options: { trusted?: boolean } = {}) =>
+  (bytes: Bytes.BytesLike) =>
+    Effect.gen(function* () {
+      const [body, witnesses, isValid, metadata] = yield* Cbor.decodeTuple([
+        decodeUnresolvedBody,
+        decodeWitnesses,
+        Cbor.decodeBool,
+        Cbor.decodeNullOption(decodeMetadata)
+      ])(bytes)
+
+      return {
+        body: {
+          ...body,
+          inputs: yield* UTxO.resolveAll(options)(body.inputs),
+          collateral: yield* UTxO.resolveAll(options)(body.collateral),
+          refInputs: yield* UTxO.resolveAll(options)(body.refInputs)
+        } satisfies Body,
+        witnesses,
+        isValid,
+        metadata
+      } satisfies Tx
+    })
+
+export const encode =
+  (options: { forFeeCalculation?: boolean; full?: boolean } = {}) =>
+  (tx: Tx): number[] => {
+    if (options.forFeeCalculation === true) {
+      return Cbor.encodeTuple([
+        encodeBody(options)(tx.body),
+        encodeWitnesses(tx.witnesses),
+        Cbor.encodeNullOption(
+          tx.metadata ? encodeMetadata(tx.metadata) : undefined
+        )
+      ])
+    } else {
+      return Cbor.encodeTuple([
+        encodeBody(options)(tx.body),
+        encodeWitnesses(tx.witnesses),
+        Cbor.encodeBool(tx.isValid),
+        Cbor.encodeNullOption(
+          tx.metadata ? encodeMetadata(tx.metadata) : undefined
+        )
+      ])
+    }
+  }
+
+const decodeUnresolvedBody = (bytes: Bytes.BytesLike) =>
+  Either.gen(function* () {
+    let inputsEncodedAsSet = false
+    let dcertsEncodedAsSet = false
+    let collateralInputsEncodedAsSet = false
+    let signersEncodedAsSet = false
+    let refInputsEncodedAsSet = false
+
+    const {
+      0: inputs,
+      1: outputs,
+      2: fee,
+      3: lastValidSlot,
+      4: dcerts,
+      5: withdrawals,
+      7: metadataHash,
+      8: firstValidSlot,
+      9: minted,
+      11: scriptDataHash,
+      13: collateralInputs,
+      14: signers,
+      16: collateralReturn,
+      17: totalCollateral,
+      18: refInputs
+    } = yield* Cbor.decodeObjectIKey({
+      0: (s) => {
+        inputsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(UTxO.decode)(s)
+      },
+      1: Cbor.decodeList(TxOutput.decode),
+      2: Cbor.decodeInt,
+      3: Cbor.decodeIntAsNumber,
+      4: (s) => {
+        dcertsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(DCert.decode)(s)
+      },
+      5: (s) => Cbor.decodeMap(RewardAddress.decode, Cbor.decodeInt)(s),
+      7: Cbor.decodeBytes,
+      8: Cbor.decodeIntAsNumber,
+      9: Assets.decode,
+      11: Cbor.decodeBytes,
+      13: (s) => {
+        collateralInputsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(UTxO.decode)(s)
+      },
+      14: (s) => {
+        signersEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(PubKeyHash.decode)(s)
+      },
+      15: Cbor.decodeInt,
+      16: TxOutput.decode,
+      17: Cbor.decodeInt,
+      18: (s) => {
+        refInputsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(UTxO.decode)(s)
+      }
+    })(bytes)
+
+    return {
+      inputs: inputs ?? [],
+      outputs: outputs ?? [],
+      fee: fee ?? 0n,
+      firstValidSlot,
+      lastValidSlot,
+      dcerts: dcerts ?? [],
+      withdrawals: withdrawals ?? [],
+      metadataHash,
+      minted: minted ?? {},
+      scriptDataHash,
+      collateral: collateralInputs ?? [],
+      signers: signers ?? [],
+      collateralReturn,
+      totalCollateral: totalCollateral ?? 0n,
+      refInputs: refInputs ?? [],
+      encoding: {
+        inputsAsSet: inputsEncodedAsSet,
+        dcertsAsSet: dcertsEncodedAsSet,
+        collateralInputsAsSet: collateralInputsEncodedAsSet,
+        signersAsSet: signersEncodedAsSet,
+        refInputsAsSet: refInputsEncodedAsSet
+      }
+    }
+  })
+
+const encodeBody =
+  (options: { full?: boolean }) =>
+  (body: Body): number[] => {
+    const m: Map<number, number[]> = new Map()
+
+    const encodeInputsAsSet = body.encoding?.inputsAsSet ?? true
+    const encodedInputs = body.inputs.map(UTxO.encode(options))
+    m.set(
+      0,
+      encodeInputsAsSet
+        ? Cbor.encodeSet(encodedInputs)
+        : Cbor.encodeDefList(encodedInputs)
+    )
+
+    m.set(1, Cbor.encodeDefList(body.outputs.map(TxOutput.encode)))
+    m.set(2, Cbor.encodeInt(body.fee))
+
+    if (body.lastValidSlot !== undefined) {
+      m.set(3, Cbor.encodeInt(body.lastValidSlot))
+    }
+
+    if (body.dcerts.length != 0) {
+      const encodeAsSet = body.encoding?.dcertsAsSet ?? true
+      const encodedItems = body.dcerts.map(DCert.encode)
+
+      m.set(
+        4,
+        encodeAsSet
+          ? Cbor.encodeSet(encodedItems)
+          : Cbor.encodeDefList(encodedItems)
+      )
+    }
+
+    if (body.withdrawals.length != 0) {
+      const encodedPairs = body.withdrawals.map(
+        ([sa, q]) =>
+          [RewardAddress.encode(sa), Cbor.encodeInt(q)] as [number[], number[]]
+      )
+
+      m.set(5, Cbor.encodeMap(encodedPairs))
+    }
+
+    if (body.metadataHash !== undefined) {
+      m.set(7, Cbor.encodeBytes(body.metadataHash))
+    }
+
+    if (body.firstValidSlot !== undefined) {
+      m.set(8, Cbor.encodeInt(body.firstValidSlot))
+    }
+
+    if (!Assets.isEmpty(body.minted)) {
+      m.set(9, Assets.encode(body.minted))
+    }
+
+    if (body.scriptDataHash !== undefined) {
+      m.set(11, Cbor.encodeBytes(body.scriptDataHash))
+    }
+
+    if (body.collateral.length != 0) {
+      const encodeAsSet = body.encoding?.collateralInputsAsSet ?? true
+      const encodedItems = body.collateral.map(UTxO.encode(options))
+      m.set(
+        13,
+        encodeAsSet
+          ? Cbor.encodeSet(encodedItems)
+          : Cbor.encodeDefList(encodedItems)
+      )
+    }
+
+    if (body.signers.length != 0) {
+      const encodeAsSet = body.encoding?.signersAsSet ?? true
+      const encodedItems = body.signers.map(PubKeyHash.encode)
+
+      m.set(
+        14,
+        encodeAsSet
+          ? Cbor.encodeSet(encodedItems)
+          : Cbor.encodeDefList(encodedItems)
+      )
+    }
+
+    // what is NetworkId used for, seems a bit useless?
+    // object.set(15, encodeInt(2n));
+
+    if (body.collateralReturn !== undefined) {
+      m.set(16, TxOutput.encode(body.collateralReturn))
+    }
+
+    if (body.totalCollateral > 0n) {
+      m.set(17, Cbor.encodeInt(body.totalCollateral))
+    }
+
+    if (body.refInputs.length != 0) {
+      const encodeAsSet = body.encoding?.refInputsAsSet ?? true
+      const encodedItems = body.refInputs.map(UTxO.encode(options))
+
+      m.set(
+        18,
+        encodeAsSet
+          ? Cbor.encodeSet(encodedItems)
+          : Cbor.encodeDefList(encodedItems)
+      )
+    }
+
+    return Cbor.encodeObjectIKey(m)
+  }
+
+const decodeWitnesses = (
+  bytes: Bytes.BytesLike
+): Cbor.DecodeResult<Witnesses> =>
+  Either.gen(function* () {
+    let signaturesEncodedAsSet = false
+    let nativeScriptsEncodedAsSet = false
+    let v1ScriptsEncodedAsSet = false
+    let datumsEncodedAsSet = false
+    let v2ScriptsEncodedAsSet = false
+    let v3ScriptsEncodedAsSet = false
+
+    const {
+      0: signatures,
+      1: nativeScripts,
+      3: v1Scripts,
+      4: datums,
+      5: redeemers,
+      6: v2Scripts,
+      7: v3Scripts
+    } = yield* Cbor.decodeObjectIKey({
+      0: (s) => {
+        signaturesEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(Signature.decode)(s)
+      },
+      1: (s) => {
+        nativeScriptsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(NativeScript.decode)(s)
+      },
+      3: (s) => {
+        v1ScriptsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(Script.decode(1))(s)
+      },
+      4: (s) => {
+        datumsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(Data.decode)(s)
+      },
+      5: Cbor.decodeList(Redeemer.decode),
+      6: (s) => {
+        v2ScriptsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(Script.decode(2))(s)
+      },
+      7: (s) => {
+        v3ScriptsEncodedAsSet = Cbor.isSet(s)
+        return Cbor.decodeSet(Script.decode(3))(s)
+      }
+    })(bytes)
+
+    return {
+      signatures: signatures ?? [],
+      nativeScripts: nativeScripts ?? [],
+      v1Scripts: v1Scripts ?? [],
+      datums: datums ?? [],
+      redeemers: redeemers ?? [],
+      v2Scripts: v2Scripts ?? [],
+      v2RefScripts: [],
+      v3Scripts: v3Scripts ?? [],
+      v3RefScripts: [],
+      encoding: {
+        signaturesAsSet: signaturesEncodedAsSet,
+        nativeScriptsAsSet: nativeScriptsEncodedAsSet,
+        v1ScriptsAsSet: v1ScriptsEncodedAsSet,
+        datumsAsSet: datumsEncodedAsSet,
+        v2ScriptsAsSet: v2ScriptsEncodedAsSet,
+        v3ScriptsAsSet: v3ScriptsEncodedAsSet
+      }
+    } satisfies Witnesses
+  })
+
+function encodeWitnesses(witnesses: Witnesses): number[] {
+  const m = new Map<number, number[]>()
+
+  if (witnesses.signatures.length > 0) {
+    const encodeAsSet = witnesses.encoding?.signaturesAsSet ?? true
+    const encodedItems = witnesses.signatures.map(Signature.encode)
+
+    m.set(
+      0,
+      encodeAsSet
+        ? Cbor.encodeSet(encodedItems)
+        : Cbor.encodeDefList(encodedItems)
+    )
+  }
+
+  if (witnesses.nativeScripts.length > 0) {
+    const encodeAsSet = witnesses.encoding?.nativeScriptsAsSet ?? true
+    const encodedItems = witnesses.nativeScripts.map(NativeScript.encode)
+
+    m.set(
+      1,
+      encodeAsSet
+        ? Cbor.encodeSet(encodedItems)
+        : Cbor.encodeDefList(encodedItems)
+    )
+  }
+
+  if (witnesses.v1Scripts.length > 0) {
+    const encodeAsSet = witnesses.encoding?.v1ScriptsAsSet ?? true
+    const encodedItems = witnesses.v1Scripts.map(Script.encode)
+
+    m.set(
+      3,
+      encodeAsSet
+        ? Cbor.encodeSet(encodedItems)
+        : Cbor.encodeDefList(encodedItems)
+    )
+  }
+
+  if (witnesses.datums.length > 0) {
+    const encodeAsSet = witnesses.encoding?.datumsAsSet ?? true
+    const encodedItems = witnesses.datums.map(Data.encode)
+
+    m.set(
+      4,
+      encodeAsSet
+        ? Cbor.encodeSet(encodedItems)
+        : Cbor.encodeDefList(encodedItems)
+    )
+  }
+
+  if (witnesses.redeemers.length > 0) {
+    m.set(5, Cbor.encodeDefList(witnesses.redeemers.map(Redeemer.encode)))
+  }
+
+  if (witnesses.v2Scripts.length > 0) {
+    const encodeAsSet = witnesses.encoding?.v2ScriptsAsSet ?? true
+    const encodedItems = witnesses.v2Scripts.map(Script.encode)
+
+    m.set(
+      6,
+      encodeAsSet
+        ? Cbor.encodeSet(encodedItems)
+        : Cbor.encodeDefList(encodedItems)
+    )
+  }
+
+  if (witnesses.v3Scripts.length > 0) {
+    const encodeAsSet = witnesses.encoding?.v3ScriptsAsSet ?? true
+    const encodedItems = witnesses.v3Scripts.map(Script.encode)
+
+    m.set(
+      7,
+      encodeAsSet
+        ? Cbor.encodeSet(encodedItems)
+        : Cbor.encodeDefList(encodedItems)
+    )
+  }
+
+  return Cbor.encodeObjectIKey(m)
+}
+
+const decodeMetadata = (
+  bytes: Bytes.BytesLike
+): Cbor.DecodeResult<Metadata> => {
+  return Cbor.decodeMap(
+    Cbor.decodeIntAsNumber,
+    decodeMetadataAttr
+  )(bytes).pipe(Either.map(Object.fromEntries))
+}
+
+function encodeMetadata(metadata: Metadata): number[] {
+  return Cbor.encodeMap(
+    Object.entries(metadata).map(([k, v]) => [
+      Cbor.encodeInt(Number(k)),
+      encodeMetadataAttr(v)
+    ])
+  )
+}
+
+export function hashMetadata(metadata: Metadata): number[] {
+  return Bytes.toArray(Crypto.Blake2b.hashSync(encodeMetadata(metadata)))
+}
+
+const decodeMetadataAttr = (
+  bytes: Bytes.BytesLike
+): Cbor.DecodeResult<MetadataAttr> => {
+  const stream = Bytes.makeStream(bytes)
+
+  if (Cbor.isString(stream)) {
+    return Cbor.decodeString(stream)
+  } else if (Cbor.isList(stream)) {
+    return Cbor.decodeList(decodeMetadataAttr)(stream)
+  } else if (Cbor.isMap(stream)) {
+    return Cbor.decodeMap(
+      Cbor.decodeString,
+      decodeMetadataAttr
+    )(stream).pipe(Either.map(Object.fromEntries))
+  } else {
+    return Cbor.decodeInt(stream).pipe(Either.map(Number))
+  }
+}
+
+function encodeMetadataAttr(attr: MetadataAttr): number[] {
+  if (typeof attr == "string") {
+    return Cbor.encodeString(attr, true)
+  } else if (typeof attr == "number") {
+    return Cbor.encodeInt(attr)
+  } else if (Array.isArray(attr)) {
+    return Cbor.encodeDefList(attr.map(encodeMetadataAttr))
+  } else {
+    return Cbor.encodeMap(
+      Object.entries(attr).map(([k, v]) => [
+        Cbor.encodeString(k),
+        encodeMetadataAttr(v)
+      ])
+    )
+  }
+}
+
+export function hash(tx: Tx): TxHash.TxHash {
+  return Encoding.encodeHex(
+    Crypto.Blake2b.hashSync(encodeBody({ full: false })(tx.body))
+  ) as TxHash.TxHash
+}
+
+const countUniqueSigners = (body: Body): number => {
+  const set = new Set<PubKeyHash.PubKeyHash>()
+
+  body.inputs.concat(body.collateral).forEach((utxo) => {
+    const address = utxo.output.address
+    const credential = Address.spendingCredential(address)
+    if (credential._tag == "PubKey") {
+      set.add(credential.hash)
+    }
+  })
+
+  body.signers.forEach((s) => set.add(s))
+
+  return set.size
+}
+
+const countNonDummySignatures = (witnesses: Witnesses): number => {
+  return witnesses.signatures.reduce(
+    (count, s) => count + (Signature.isDummy(s) ? 0 : 1),
+    0
+  )
+}
+
+const countMissingSignatures = (tx: Tx): number =>
+  countUniqueSigners(tx.body) - countNonDummySignatures(tx.witnesses)
+
+/**
+ * Number of bytes of CBOR encoding of Tx
+ *
+ * Is used for two things:
+ *   - tx fee calculation
+ *   - tx size validation
+ *
+ * @param forFeeCalc
+ */
+export const size =
+  (forFeeCalculation: boolean = false) =>
+  (tx: Tx) => {
+    // add dummy signatures to make sure the tx has the correct size
+    let nDummy = 0
+
+    if (forFeeCalculation) {
+      nDummy = countMissingSignatures(tx)
+      tx = {
+        ...tx,
+        witnesses: {
+          ...tx.witnesses,
+          signatures: tx.witnesses.signatures.concat(
+            new Array(nDummy).fill(Signature.dummy)
+          )
+        }
+      }
+    }
+
+    return encode({ forFeeCalculation, full: false })(tx).length
+  }
+
+const refScriptsSize = (tx: Tx): number => {
+  const utxos = tx.body.inputs.concat(tx.body.refInputs)
+
+  const unique = {} as Record<string, UTxO.UTxO>
+
+  utxos.forEach((utxo) => {
+    unique[utxo.ref] = utxo
+  })
+
+  return Object.values(unique).reduce((prev, utxo) => {
+    if (utxo.output.refScript) {
+      return prev + Script.encode(utxo.output.refScript).length
+    } else {
+      return prev
+    }
+  }, 0)
+}
+
+const refScriptsFee =
+  (feePerByte: number, growthIncrement = 25600, growthFactor = 1.2) =>
+  (tx: Tx): bigint => {
+    let s = refScriptsSize(tx)
+
+    let multiplier = 1.0
+    let fee = 0n
+
+    while (s > growthIncrement) {
+      fee += BigInt(
+        Math.floor(Number(growthIncrement) * multiplier * feePerByte)
+      )
+      s -= growthIncrement
+      multiplier *= growthFactor
+    }
+
+    fee += BigInt(Math.floor(Number(size) * multiplier * feePerByte))
+    return fee
+  }
+
+export const minFee = (tx: Tx) =>
+  Effect.gen(function* () {
+    const params = yield* Params.params
+
+    const sizeFee =
+      BigInt(params.txFeeFixed) +
+      BigInt(size(true)(tx)) * BigInt(params.txFeePerByte)
+
+    const { mem: totalMem, cpu: totalCpu } = tx.witnesses.redeemers.reduce(
+      (cost, r) => ({ cpu: cost.cpu + r.cost.cpu, mem: cost.mem + r.cost.mem }),
+      { cpu: 0n, mem: 0n }
+    )
+    const exFee = BigInt(
+      Math.ceil(
+        Number(totalMem) * params.exMemFeePerUnit +
+          Number(totalCpu) * params.exCpuFeePerUnit
+      )
+    )
+
+    const rsFee = refScriptsFee(params.refScriptsFeePerByte)(tx)
+
+    return sizeFee + exFee + rsFee
+  })
+
+export const inputDatum = (inputIndex: number) => (tx: Tx) => {
+  const datum = tx.body.inputs[inputIndex]?.output?.datum
+
+  if (datum === undefined) {
+    return datum
+  } else if (datum._tag == "Inline") {
+    return datum.data
+  } else {
+    const resolvedDatum = tx.witnesses.datums.find(
+      (d) => DatumHash.hash(d) == datum.hash
+    )
+
+    if (resolvedDatum === undefined) {
+      throw new Error(
+        `Datum for hash '${datum.hash}' not found in tx.witnesses.datums`
+      )
+    }
+
+    return resolvedDatum
+  }
+}
+
+function isSmart(tx: Tx): boolean {
+  return (
+    tx.witnesses.v1Scripts.length > 0 ||
+    tx.witnesses.v2Scripts.length > 0 ||
+    tx.witnesses.v2RefScripts.length > 0 ||
+    tx.witnesses.v3Scripts.length > 0 ||
+    tx.witnesses.v3RefScripts.length > 0
+  )
+}
+
+export const scriptDataHash = (tx: Tx) =>
+  Effect.gen(function* () {
+    if (tx.witnesses.redeemers.length == 0) {
+      return undefined
+    }
+
+    let bytes = Cbor.encodeDefList(tx.witnesses.redeemers.map(Redeemer.encode))
+
+    if (tx.witnesses.datums.length > 0) {
+      bytes = bytes.concat(Data.encode(Data.makeListData(tx.witnesses.datums)))
+    }
+
+    const encodedCostModels: [number[], number[]][] = []
+
+    if (isSmart(tx)) {
+      const params = yield* Params.params
+
+      if (tx.witnesses.v1Scripts.length > 0) {
+        encodedCostModels.push([
+          Cbor.encodeInt(0),
+          Cbor.encodeDefList(params.costModelParamsV1.map(Cbor.encodeInt))
+        ] as const)
+      }
+
+      if (
+        tx.witnesses.v2Scripts.length > 0 ||
+        tx.witnesses.v2RefScripts.length > 0
+      ) {
+        encodedCostModels.push([
+          Cbor.encodeInt(1),
+          Cbor.encodeDefList(params.costModelParamsV2.map(Cbor.encodeInt))
+        ] as const)
+      }
+
+      if (
+        tx.witnesses.v3Scripts.length > 0 ||
+        tx.witnesses.v3RefScripts.length > 0
+      ) {
+        encodedCostModels.push([
+          Cbor.encodeInt(2),
+          Cbor.encodeDefList(params.costModelParamsV3.map(Cbor.encodeInt))
+        ] as const)
+      }
+    }
+
+    bytes = bytes.concat(Cbor.encodeMap(encodedCostModels))
+
+    return Bytes.toArray(Crypto.Blake2b.hashSync(bytes))
+  })

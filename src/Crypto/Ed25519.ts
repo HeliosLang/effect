@@ -1,7 +1,7 @@
 import { Either, Encoding } from "effect"
-import * as Bits from "../internal/Bits.js"
-import * as Bytes from "../internal/Bytes.js"
-import * as LittleEndian from "../internal/LittleEndian.js"
+import * as Bits from "../Codecs/Bits.js"
+import * as Bytes from "../Codecs/Bytes.js"
+import * as LittleEndian from "../Codecs/LittleEndian.js"
 import { type Curve, type Point2I, type Point4 } from "./Curve.js"
 import {
   BadPrivateKeyLength,

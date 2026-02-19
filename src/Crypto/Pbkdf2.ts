@@ -1,5 +1,5 @@
-import * as BigEndian from "../internal/BigEndian.js"
-import * as Bytes from "../internal/Bytes.js"
+import * as BigEndian from "../Codecs/BigEndian.js"
+import * as Bytes from "../Codecs/Bytes.js"
 
 /**
  * Password-Based Key Derivation Function 2.

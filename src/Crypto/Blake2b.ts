@@ -1,5 +1,5 @@
-import * as Bytes from "../internal/Bytes.js"
-import * as Uint64 from "../internal/Uint64.js"
+import * as Bytes from "../Codecs/Bytes.js"
+import * as Uint64 from "../Codecs/Uint64.js"
 
 /**
  * Calculates blake2b hash of a list of uint8 numbers (variable digest size).

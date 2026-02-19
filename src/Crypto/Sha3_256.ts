@@ -1,4 +1,4 @@
-import * as Bytes from "../internal/Bytes.js"
+import * as Bytes from "../Codecs/Bytes.js"
 import * as Keccak from "./Keccak.js"
 
 /**

@@ -1,5 +1,5 @@
-import * as Bytes from "../internal/Bytes.js"
-import * as Uint64 from "../internal/Uint64.js"
+import * as Bytes from "../Codecs/Bytes.js"
+import * as Uint64 from "../Codecs/Uint64.js"
 
 /**
  * Keccak is a family of hashing functions, of which Sha3 is the most well-known

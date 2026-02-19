@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import * as Bytes from "../internal/Bytes.js"
-import * as Utf8 from "../internal/Utf8.js"
+import * as Bytes from "../Codecs/Bytes.js"
+import * as Utf8 from "../Codecs/Utf8.js"
 import * as Sha3_256 from "./Sha3_256.js"
 
 /**

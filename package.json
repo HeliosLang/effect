@@ -2,12 +2,30 @@
   "name": "@helios-lang/effect",
   "version": "0.1.15",
   "description": "",
-  "main": "dist/index.js",
-  "types": "types/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./types/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./Ledger": "./dist/Ledger/index.js",
-    "./Uplc": "./dist/Uplc/index.js"
+    ".": {
+      "default": "./dist/index.js",
+      "import": "./dist/index.js",
+      "types": "./types/index.d.ts"
+    },
+    "./Cardano": {
+      "default": "./dist/Cardano/index.js",
+      "import": "./dist/Cardano/index.js",
+      "types": "./types/Cardano/index.d.ts"
+    },
+    "./Codecs": {
+      "default": "./dist/Codecs/index.js",
+      "import": "./dist/Codecs/index.js",
+      "types": "./types/Codecs/index.d.ts"
+    },
+    "./Crypto": {
+      "default": "./dist/Crypto/index.js",
+      "import": "./dist/Crypto/index.js",
+      "types": "./types/Crypto/index.d.ts"
+    }
   },
   "scripts": {
     "build": "tsc -p ./tsconfig.build.json",

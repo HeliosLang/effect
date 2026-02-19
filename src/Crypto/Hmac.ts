@@ -1,4 +1,4 @@
-import * as Bytes from "../internal/Bytes.js"
+import * as Bytes from "../Codecs/Bytes.js"
 import * as Sha2_256 from "./Sha2_256.js"
 import * as Sha2_512 from "./Sha2_512.js"
 
