@@ -19,6 +19,7 @@ import {
   ValidatorHash
 } from "./Ledger"
 import * as Network from "./Network"
+import * as ScriptContext from "./ScriptContext.js"
 import * as Uplc from "./Uplc"
 import { Balancing as BalancingWallet } from "./Wallet.js"
 
@@ -1389,7 +1390,7 @@ const profileRedeemer =
     Effect.gen(function* () {
       const script = getUplcScript(b, vh)
 
-      const args: Uplc.Value.Value[] = yield* Uplc.ScriptContext.makeArgs(
+      const args: Uplc.Value.Value[] = yield* ScriptContext.makeArgs(
         script.version,
         tx,
         redeemerIndex

@@ -2,34 +2,34 @@ import { Context, Effect, Option, Schema } from "effect"
 import {
   FromUplcData as DatumHashFromUplcData,
   hash as hashDatum
-} from "../Ledger/DatumHash.js"
-import { FromUplcData as MintingPolicyFromUplcData } from "../Ledger/MintingPolicy.js"
+} from "./Ledger/DatumHash.js"
+import { FromUplcData as MintingPolicyFromUplcData } from "./Ledger/MintingPolicy.js"
 import {
   FromUplcData as AssetsFromUplcData,
   type Assets,
   nonAdaPolicies
-} from "../Ledger/Assets.js"
-import { FromUplcData as DCertFromUplcData } from "../Ledger/DCert.js"
-import { FromUplcData as PubKeyHashFromUplcData } from "../Ledger/PubKeyHash.js"
-import { Redeemer } from "../Ledger/Redeemer.js"
-import { FromUplcData as RewardAddressFromUplcData } from "../Ledger/RewardAddress.js"
-import { type Tx, hash as hashTx, inputDatum } from "../Ledger/Tx.js"
+} from "./Ledger/Assets.js"
+import { FromUplcData as DCertFromUplcData } from "./Ledger/DCert.js"
+import { FromUplcData as PubKeyHashFromUplcData } from "./Ledger/PubKeyHash.js"
+import { Redeemer } from "./Ledger/Redeemer.js"
+import { FromUplcData as RewardAddressFromUplcData } from "./Ledger/RewardAddress.js"
+import { type Tx, hash as hashTx, inputDatum } from "./Ledger/Tx.js"
 import {
   FromUplcData as TxHashFromUplcData,
   FromUplcDataV3 as TxHashFromUplcDataV3
-} from "../Ledger/TxHash.js"
-import { FromUplcData as TxOutputFromUplcData } from "../Ledger/TxOutput.js"
+} from "./Ledger/TxHash.js"
+import { FromUplcData as TxOutputFromUplcData } from "./Ledger/TxOutput.js"
 import {
   FromUplcData as UTxOFromUplcData,
   FromUplcDataV3 as UTxOFromUplcDataV3
-} from "../Ledger/UTxO.js"
+} from "./Ledger/UTxO.js"
 import {
   FromUplcData as UTxORefFromUplcData,
   FromUplcDataV3 as UTxORefFromUplcDataV3
-} from "../Ledger/UTxORef.js"
-import * as Params from "../Network/Params.js"
-import * as Data from "./Data.js"
-import * as Value from "./Value.js"
+} from "./Ledger/UTxORef.js"
+import * as Params from "./Network/Params.js"
+import * as Data from "./Uplc/Data.js"
+import * as Value from "./Uplc/Value.js"
 
 export const makeArgs = (version: 1 | 2 | 3, tx: Tx, redeemerIndex: number) =>
   Effect.gen(function* () {
