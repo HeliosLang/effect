@@ -200,7 +200,7 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
 
 export function encode(output: TxOutput): number[] {
   if (
-    (!output.datum || output.datum._tag == "Hash") &&
+    (!output.datum || "hash" in output.datum) &&
     !output.refScript &&
     (!output.encodingConfig ||
       output.encodingConfig.strictBabbage == null ||
@@ -214,7 +214,7 @@ export function encode(output: TxOutput): number[] {
       Assets.encode(output.assets)
     ]
 
-    if (output.datum && output.datum._tag == "Hash") {
+    if (output.datum && "hash" in output.datum) {
       fields.push(DatumHash.encode(output.datum.hash))
     }
 

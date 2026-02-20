@@ -489,7 +489,7 @@ export const spend =
             return yield* Effect.fail(new MissingDatum())
           }
 
-          if (datum && datum._tag == "Hash") {
+          if (datum && "hash" in datum) {
             // provide datum through service
             const getDatum = yield* GetDatum
             const datumData = yield* getDatum(datum.hash)

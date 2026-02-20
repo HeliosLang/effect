@@ -736,9 +736,7 @@ export const inputDatum = (inputIndex: number) => (tx: Tx) => {
 
   if (datum === undefined) {
     return datum
-  } else if (datum._tag == "Inline") {
-    return datum.data
-  } else {
+  } else if ("hash" in datum) {
     const resolvedDatum = tx.witnesses.datums.find(
       (d) => DatumHash.hash(d) == datum.hash
     )
@@ -750,6 +748,8 @@ export const inputDatum = (inputIndex: number) => (tx: Tx) => {
     }
 
     return resolvedDatum
+  } else {
+    return datum
   }
 }
 

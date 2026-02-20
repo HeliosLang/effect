@@ -4,9 +4,12 @@ import * as Cbor from "../../Codecs/Cbor.js"
 import * as Data from "../Uplc/Data.js"
 import * as DatumHash from "./DatumHash.js"
 
+/**
+ * Keep things simple by not requiring a tag here
+ */
 export const TxOutputDatum = Schema.Union(
-  Schema.TaggedStruct("Inline", { data: Data.Data }),
-  Schema.TaggedStruct("Hash", { hash: DatumHash.DatumHash })
+  Data.Data,
+  Schema.Struct({ hash: DatumHash.DatumHash })
 )
 
 export type TxOutputDatum = Schema.Schema.Type<typeof TxOutputDatum>
@@ -21,28 +24,31 @@ export const FromUplcData = Schema.transform(
       data: Schema.typeSchema(Data.Data)
     }
   }),
-  Schema.Union(TxOutputDatum, Schema.Undefined),
+  Schema.typeSchema(Schema.Union(TxOutputDatum, Schema.Undefined)),
   {
     strict: true,
     decode: (data) => {
-      if (data._tag == "None") {
-        return undefined
-      } else {
-        return data
+      switch (data._tag) {
+        case "None":
+          return undefined
+        case "Inline":
+          return data.data
+        case "Hash":
+          return { hash: data.hash }
       }
     },
     encode: (datum) => {
       if (datum === undefined) {
         return { _tag: "None" as const }
-      } else if (datum._tag == "Inline") {
+      } else if ("hash" in datum) {
         return {
-          _tag: "Inline" as const,
-          data: datum.data
+          _tag: "Hash" as const,
+          hash: datum.hash
         }
       } else {
         return {
-          _tag: "Hash" as const,
-          hash: datum.hash as DatumHash.DatumHash
+          _tag: "Inline" as const,
+          data: datum
         }
       }
     }
@@ -57,23 +63,20 @@ export const decode = (
 
     switch (type) {
       case 0:
-        return { _tag: "Hash", hash: yield* decodeItem(DatumHash.decode) }
+        return { hash: yield* decodeItem(DatumHash.decode) }
       case 1:
-        return {
-          _tag: "Inline",
-          data: yield* decodeItem((stream: Bytes.Stream) =>
-            Either.gen(function* () {
-              const tag = yield* Cbor.decodeTag(stream)
-              if (tag != 24n) {
-                return yield* Either.left(
-                  new Cbor.DecodeError(stream, `expected 24 as tag, got ${tag}`)
-                )
-              }
+        return yield* decodeItem((stream: Bytes.Stream) =>
+          Either.gen(function* () {
+            const tag = yield* Cbor.decodeTag(stream)
+            if (tag != 24n) {
+              return yield* Either.left(
+                new Cbor.DecodeError(stream, `expected 24 as tag, got ${tag}`)
+              )
+            }
 
-              return yield* Data.decode(yield* Cbor.decodeBytes(stream))
-            })
-          )
-        }
+            return yield* Data.decode(yield* Cbor.decodeBytes(stream))
+          })
+        )
       default:
         return yield* Either.left(
           new Cbor.DecodeError(
@@ -85,18 +88,15 @@ export const decode = (
   })
 
 export function encode(txOutputDatum: TxOutputDatum): number[] {
-  switch (txOutputDatum._tag) {
-    case "Hash":
-      return Cbor.encodeTuple([
-        Cbor.encodeInt(0n),
-        DatumHash.encode(txOutputDatum.hash)
-      ])
-    case "Inline":
-      return Cbor.encodeTuple([
-        Cbor.encodeInt(1n),
-        Cbor.encodeTag(24n).concat(
-          Cbor.encodeBytes(Data.encode(txOutputDatum.data))
-        )
-      ])
+  if ("hash" in txOutputDatum) {
+    return Cbor.encodeTuple([
+      Cbor.encodeInt(0n),
+      DatumHash.encode(txOutputDatum.hash)
+    ])
+  } else {
+    return Cbor.encodeTuple([
+      Cbor.encodeInt(1n),
+      Cbor.encodeTag(24n).concat(Cbor.encodeBytes(Data.encode(txOutputDatum)))
+    ])
   }
 }
