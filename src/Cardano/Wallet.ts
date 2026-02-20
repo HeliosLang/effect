@@ -1,0 +1,50 @@
+import { Effect } from "effect"
+import * as Bip32 from "../Crypto/Bip32.js"
+import * as Bip39 from "../Crypto/Bip39.js"
+import * as Address from "./Ledger/Address.js"
+import * as PubKey from "./Ledger/PubKey.js"
+import * as Tx from "./Ledger/Tx.js"
+import * as Network from "./Network"
+
+/**
+ * @param phrase
+ * Space separated
+ * @returns
+ */
+export const Simple = (phrase: string | string[], account: number = 0) =>
+  Effect.gen(function* () {
+    /**
+     * First turn phrase into private key
+     */
+    const entropy = yield* Bip39.phraseToEntropy(phrase)
+    const root = Bip32.skFromEntropy(entropy)
+
+    /**
+     * Then derive spending private-public key-pair
+     */
+    const spendingPrivateKey = Bip32.derivePath(root, [
+      1852 + Bip32.HARDEN,
+      1815 + Bip32.HARDEN,
+      account + Bip32.HARDEN,
+      0,
+      0
+    ])
+    const spendingPublicKey = Bip32.deriveVerificationKey(spendingPrivateKey)
+    const spendingPubKeyHash = PubKey.hash(spendingPublicKey)
+
+    const isMainnet = yield* Network.IsMainnet
+    const address = Address.make(isMainnet, {
+      _tag: "PubKey",
+      hash: spendingPubKeyHash
+    })
+    const utxosAt = yield* Network.UTxOsAt
+
+    return {
+      changeAddress: Effect.succeed(address),
+      utxos: utxosAt(address).pipe(
+        Effect.mapError((e) => new Error(e.message))
+      ),
+      signTx: (tx: Tx.Tx) =>
+        Effect.succeed([Bip32.sign(spendingPrivateKey)(Tx.hash(tx))])
+    }
+  })

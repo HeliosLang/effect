@@ -21,7 +21,7 @@ export const Address = Schema.String.pipe(
   Schema.filter((addr: string) => {
     return isValid(addr) || "Invalid Cardano Address"
   }),
-  Schema.brand("Address")
+  Schema.brand("Cardano.Ledger.Address")
 )
 
 export type Address = Schema.Schema.Type<typeof Address>

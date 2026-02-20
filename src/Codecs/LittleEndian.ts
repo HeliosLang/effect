@@ -17,6 +17,10 @@ export function decode(
   return BigEndian.decode(Bytes.toArray(bytes).reverse())
 }
 
+export function decodeOrThrow(bytes: Bytes.BytesLike): bigint {
+  return Either.getOrThrow(decode(bytes))
+}
+
 /**
  * Little Endian 32 bytes
  * @param {IntLike} x

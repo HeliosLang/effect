@@ -12,6 +12,7 @@ import {
   PubKeyHash,
   Redeemer,
   RewardAddress,
+  Signature,
   Tx,
   TxOutput,
   UTxO,
@@ -1016,41 +1017,18 @@ function hasSigner(b: TxBuilder, signer: PubKeyHash.PubKeyHash) {
   return b.signers.includes(signer)
 }
 
-export interface BuildConfig {
-  /**
-   * Change outputs resulting from the balancing are sent to this address
-   */
-  changeAddress: Address.Address
+export class BalancingWallet extends Context.Tag(
+  "Cardano.TxBuilder.BalancingWallet"
+)<
+  BalancingWallet,
+  {
+    changeAddress: Effect.Effect<Address.Address> // TODO: allow a specific kind of error?
+    utxos: Effect.Effect<UTxO.UTxO[], Error> // TODO: a specific kind of error?
+    signTx(tx: Tx.Tx): Effect.Effect<Signature.Signature[], Error> // TODO: a specific kind of error?
+  }
+>() {}
 
-  /**
-   * Additional UTxOs that can be used to balance the transaction
-   */
-  spareUTxOs?: readonly UTxO.UTxO[] | undefined
-
-  /**
-   * Defaults to the largest number of assets in one of the inputs
-   *
-   * TODO: actually use this option
-   */
-  maxAssetsPerChangeOutput?: number | undefined
-
-  /**
-   * Defaults to false, ensuring the change output created during lovelace balancing doesn't contain assets.
-   *
-   * TODO: actually use this option
-   */
-  allowDirtyChangeOutput?: boolean | undefined
-
-  /**
-   * Defaults to `allowDirtyChangeOutput`. If `true` -> allows selecting dirty UTXOs (i.e. containing non-lovelace assets) during lovelace balancing.
-   * If this is set explicitly to `true` and combined with `allowDirtyChangeOutput == false`, two change outputs might be created during lovelace balancing:
-   *   - one containing only lovelace
-   *   - another containing the assets that were selected during balancing, and some lovelace as a deposit
-   *
-   * TODO: actually use this option
-   */
-  allowDirtySpareInputs?: boolean | undefined
-
+export interface BuildOptions {
   logger?: Uplc.Cek.Logger | undefined
 
   /**
@@ -1103,101 +1081,119 @@ class CurrentTxBuilder extends Context.Tag(
   "Cardano.TxBuilder.CurrentTxBuilder"
 )<CurrentTxBuilder, TxBuilder>() {}
 
-export const build = (config: BuildConfig) => (b: TxBuilder) =>
-  Effect.gen(function* () {
-    /**
-     * Calculate the metadata hash
-     */
-    const { metadata, metadataHash } = yield* buildMetadata
+export const build =
+  (options: BuildOptions = {}) =>
+  (b: TxBuilder) =>
+    Effect.gen(function* () {
+      /**
+       * Calculate the metadata hash
+       */
+      const { metadata, metadataHash } = yield* buildMetadata
 
-    /**
-     * Calculate the validity time range slots
-     */
-    const { firstValidSlot, lastValidSlot } = yield* buildValidityTimeRange
+      /**
+       * Calculate the validity time range slots
+       */
+      const { firstValidSlot, lastValidSlot } = yield* buildValidityTimeRange
 
-    /**
-     * Make sure the outputs contain enough lovelace
-     */
-    const outputs: TxOutput.TxOutput[] = yield* buildNonChangeOutputs
+      /**
+       * Make sure the outputs contain enough lovelace
+       */
+      const outputs: TxOutput.TxOutput[] = yield* buildNonChangeOutputs
 
-    /**
-     * Simple select a collateral input from the params if smart
-     */
-    const collateralInputs = yield* selectCollateralInputs
+      /**
+       * Simple select a collateral input from the params if smart
+       */
+      const collateralInputs = yield* selectCollateralInputs
 
-    /**
-     * Create an unbalanced tx. In this tx a few fields are not yet final:
-     *   - inputs
-     *   - outputs
-     *   - fee
-     *   - scriptDataHash
-     *   - redeemers
-     */
-    let tx: Tx.Tx = {
-      body: {
-        inputs: b.inputs,
-        outputs,
-        fee: 0n,
-        firstValidSlot,
-        lastValidSlot,
-        dcerts: b.dcerts,
-        scriptDataHash: hasRedeemers(b)
-          ? (new Array(32).fill(0) as number[])
-          : undefined,
-        withdrawals: b.withdrawals.map((w) => [w.address, w.lovelace] as const),
-        minted: b.minted,
-        refInputs: b.refInputs,
-        totalCollateral: 0n,
-        collateral: collateralInputs,
-        signers: b.signers,
-        collateralReturn: undefined, // TODO
-        metadataHash,
-        encoding: config.bodyEncoding
-      } satisfies Tx.Body,
-      witnesses: {
-        signatures: [],
-        datums: b.datums,
-        redeemers: [],
-        nativeScripts: b.nativeScripts.map((s) => s.script),
-        v1Scripts: b.v1Scripts.map((s) => s.script),
-        v2Scripts: b.v2Scripts.map((s) => s.script),
-        v3Scripts: b.v3Scripts.map((s) => s.script),
-        v2RefScripts: b.v2RefScripts.map((s) => s.script),
-        v3RefScripts: b.v3RefScripts.map((s) => s.script),
-        encoding: config.witnessesEncoding
-      },
-      isValid: false,
-      metadata
-    }
+      /**
+       * Create an unbalanced tx. In this tx a few fields are not yet final:
+       *   - inputs
+       *   - outputs
+       *   - fee
+       *   - scriptDataHash
+       *   - redeemers
+       */
+      let tx: Tx.Tx = {
+        body: {
+          inputs: b.inputs,
+          outputs,
+          fee: 0n,
+          firstValidSlot,
+          lastValidSlot,
+          dcerts: b.dcerts,
+          scriptDataHash: hasRedeemers(b)
+            ? (new Array(32).fill(0) as number[])
+            : undefined,
+          withdrawals: b.withdrawals.map(
+            (w) => [w.address, w.lovelace] as const
+          ),
+          minted: b.minted,
+          refInputs: b.refInputs,
+          totalCollateral: 0n,
+          collateral: collateralInputs,
+          signers: b.signers,
+          collateralReturn: undefined, // TODO
+          metadataHash,
+          encoding: options.bodyEncoding
+        } satisfies Tx.Body,
+        witnesses: {
+          signatures: [],
+          datums: b.datums,
+          redeemers: [],
+          nativeScripts: b.nativeScripts.map((s) => s.script),
+          v1Scripts: b.v1Scripts.map((s) => s.script),
+          v2Scripts: b.v2Scripts.map((s) => s.script),
+          v3Scripts: b.v3Scripts.map((s) => s.script),
+          v2RefScripts: b.v2RefScripts.map((s) => s.script),
+          v3RefScripts: b.v3RefScripts.map((s) => s.script),
+          encoding: options.witnessesEncoding
+        },
+        isValid: false,
+        metadata
+      }
 
-    /**
-     * The redeemer indices depend on some tx body fields, so are initialized after the init tx is created
-     */
-    tx = yield* buildRedeemersWithoutCost(tx)
+      /**
+       * The redeemer indices depend on some tx body fields, so are initialized after the init tx is created
+       */
+      tx = yield* buildRedeemersWithoutCost(tx)
 
-    /**
-     * Now in a loop the transaction is updated:
-     *   - fee is set to min fee
-     *   - the tx is balanced, grabbing inputs from the spareUTxOs and creating a change UTxO if there wasn't already a change UTxO
-     *   - any lazy redeemer data is built (usually depends on order of inputs/outputs etc.)
-     *   - the cost of each redeemer is calculated
-     *   - the scriptDataHash is updated
-     *
-     * The loop continues as long as the tx.fee field is smaller than the min required field.
-     * We know that this loop will run at least once because initially tx.fee=0n, ensuring the tx is balanced
-     */
-    while (tx.body.fee < (yield* Tx.minFee(tx))) {
-      tx = yield* updateFee(tx)
+      /**
+       * Now in a loop the transaction is updated:
+       *   - fee is set to min fee
+       *   - the tx is balanced, grabbing inputs from the spareUTxOs and creating a change UTxO if there wasn't already a change UTxO
+       *   - any lazy redeemer data is built (usually depends on order of inputs/outputs etc.)
+       *   - the cost of each redeemer is calculated
+       *   - the scriptDataHash is updated
+       *
+       * The loop continues as long as the tx.fee field is smaller than the min required field.
+       * We know that this loop will run at least once because initially tx.fee=0n, ensuring the tx is balanced
+       */
+      while (tx.body.fee < (yield* Tx.minFee(tx))) {
+        tx = yield* updateFee(tx)
 
-      tx = yield* balanceTx(tx, config)
+        tx = yield* balanceTx(tx)
 
-      tx = yield* buildRedeemersWithCost(tx)
+        tx = yield* buildRedeemersWithCost(tx)
 
-      tx = yield* updateScriptDataHash(tx)
-    }
+        tx = yield* updateScriptDataHash(tx)
+      }
 
-    return tx
-  }).pipe(Effect.provideService(CurrentTxBuilder, b))
+      /**
+       * Sign using balancing wallet
+       */
+      tx = {
+        ...tx,
+        witnesses: {
+          ...tx.witnesses,
+          signatures: [
+            ...tx.witnesses.signatures,
+            ...(yield* (yield* BalancingWallet).signTx(tx))
+          ]
+        }
+      }
+
+      return tx
+    }).pipe(Effect.provideService(CurrentTxBuilder, b))
 
 const buildMetadata = CurrentTxBuilder.pipe(
   Effect.map((b) => {
@@ -1458,7 +1454,7 @@ const selectCoinsForBalancing = CoinSelection.smallestFirst({
   allowSelectingUninvolvedAssets: true
 })
 
-const balanceTx = (tx: Tx.Tx, config: BuildConfig) =>
+const balanceTx = (tx: Tx.Tx) =>
   Effect.gen(function* () {
     const inputAssets = UTxO.sumAssets(...tx.body.inputs)
     const outputAssets = Assets.sum(
@@ -1481,11 +1477,15 @@ const balanceTx = (tx: Tx.Tx, config: BuildConfig) =>
       return tx
     }
 
+    const balancingWallet = yield* BalancingWallet
+    const changeAddress = yield* balancingWallet.changeAddress
+    const spareUTxOs = yield* balancingWallet.utxos
+
     const selectAndAddInputs = (amount: Assets.Assets) =>
       Effect.gen(function* () {
         const extraInputs = yield* selectCoinsForBalancing(
           UTxO.difference(
-            config.spareUTxOs ?? [],
+            spareUTxOs ?? [],
             tx.body.inputs.concat(tx.body.refInputs)
           ),
           amount
@@ -1516,7 +1516,7 @@ const balanceTx = (tx: Tx.Tx, config: BuildConfig) =>
       return tx
     }
 
-    if (Address.isValidator(config.changeAddress)) {
+    if (Address.isValidator(changeAddress)) {
       throw new Error("can't send change to validator")
     }
 
@@ -1525,7 +1525,7 @@ const balanceTx = (tx: Tx.Tx, config: BuildConfig) =>
      */
     let changeOutput: TxOutput.TxOutput | undefined = tx.body.outputs.find(
       (output) =>
-        output.address == config.changeAddress &&
+        output.address == changeAddress &&
         output.datum === undefined &&
         output.refScript === undefined
     )
@@ -1538,7 +1538,7 @@ const balanceTx = (tx: Tx.Tx, config: BuildConfig) =>
      */
     if (changeOutput === undefined) {
       changeOutput = {
-        address: config.changeAddress,
+        address: changeAddress,
         assets: Assets.filterPositive(net)
       }
 
