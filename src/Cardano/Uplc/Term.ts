@@ -1,4 +1,5 @@
 import { Either, Schema } from "effect"
+import * as Bytes from "../../Codecs/Bytes.js"
 import * as Flat from "../../Codecs/Flat.js"
 import * as Type from "./Type.js"
 import * as Value from "./Value.js"
@@ -223,6 +224,26 @@ export function flatTag(term: Term): number {
     case "Var":
       return VarTag
   }
+}
+
+export const decodeRoot = (bytes: Bytes.BytesLike) => {
+  const r = Flat.makeReader(Bytes.toUint8Array(bytes))
+
+  void `${r.readInt()}.${r.readInt()}.${r.readInt()}`
+
+  return decode({})(r)
+}
+
+export const encodeRoot = (uplcVersion: "1.0.0" | "1.1.0", term: Term): Uint8Array => {
+  const w = Flat.makeWriter()
+
+  uplcVersion.split(".").forEach((v) => {
+    w.writeInt(Number(v))
+  })
+  
+  encode(w)(term)
+
+  return Bytes.toUint8Array(w.finalize())
 }
 
 /**
