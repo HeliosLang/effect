@@ -7,6 +7,7 @@ import {
   encodeBytes,
   encodeTuple
 } from "../../Codecs/Cbor.js"
+import * as Bip32 from "../../Crypto/Bip32.js"
 import * as PubKey from "./PubKey.js"
 
 export const Signature = Schema.Struct({
@@ -15,6 +16,17 @@ export const Signature = Schema.Struct({
 })
 
 export type Signature = Schema.Schema.Type<typeof Signature>
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type AssertExtends<A, _B extends A> = never
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type _LedgerSignatureExtendsBip32Signature = AssertExtends<
+  Bip32.Signature,
+  Signature
+>
 
 export const decode = (bytes: Bytes.BytesLike): DecodeResult<Signature> =>
   decodeTuple([PubKey.decode, decodeBytes])(bytes).pipe(

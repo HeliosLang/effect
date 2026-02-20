@@ -200,11 +200,18 @@ export const derivePath = (sk: SigningKey, path: number[]): SigningKey => {
   return sk
 }
 
-export const sign = (sk: SigningKey) => (message: Bytes.BytesLike) => {
-  return {
-    pubKey: deriveVerificationKey(sk),
-    signature: Either.getOrThrow(
-      Ed25519.sign(Bytes.toUint8Array(message), k(sk), false)
-    )
-  }
+export type Signature = {
+  pubKey: VerificationKey
+  bytes: Uint8Array
 }
+
+export const sign =
+  (sk: SigningKey) =>
+  (message: Bytes.BytesLike): Signature => {
+    return {
+      pubKey: deriveVerificationKey(sk),
+      bytes: Either.getOrThrow(
+        Ed25519.sign(Bytes.toUint8Array(message), k(sk), false)
+      )
+    }
+  }

@@ -173,35 +173,48 @@ const eval$ = (
     return Cek.eval(root, ctx)
   })
 
-export const apply = (script: Script, args: readonly Value.Value[]) => Effect.gen(function* () {
-  let rootTerm = yield* entryPoint(script)
+export const apply = (script: Script, args: readonly Value.Value[]) =>
+  Effect.gen(function* () {
+    let rootTerm = yield* entryPoint(script)
 
-  for (const arg of args) {
-    rootTerm = { _tag: "Apply", fn: rootTerm, arg: { _tag: "Const", value: arg } }
-  }
-
-  script = {
-    ...script,
-    root: Term.encodeRoot(script.version == 3 ? "1.1.0" : "1.0.0", rootTerm),
-  }
-
-  let verbose = script.verbose
-
-  if (verbose) {
-    let verboseRootTerm = yield* entryPoint({...script, root: verbose})
-    
     for (const arg of args) {
-      verboseRootTerm = { _tag: "Apply", fn: verboseRootTerm, arg: { _tag: "Const", value: arg } }
+      rootTerm = {
+        _tag: "Apply",
+        fn: rootTerm,
+        arg: { _tag: "Const", value: arg }
+      }
     }
 
     script = {
       ...script,
-      verbose: Term.encodeRoot(script.version == 3 ? "1.1.0" : "1.0.0", verboseRootTerm)
+      root: Term.encodeRoot(script.version == 3 ? "1.1.0" : "1.0.0", rootTerm)
     }
-  }
 
-  return script
-})
+    if (script.verbose) {
+      let verboseRootTerm = yield* entryPoint({
+        ...script,
+        root: script.verbose
+      })
+
+      for (const arg of args) {
+        verboseRootTerm = {
+          _tag: "Apply",
+          fn: verboseRootTerm,
+          arg: { _tag: "Const", value: arg }
+        }
+      }
+
+      script = {
+        ...script,
+        verbose: Term.encodeRoot(
+          script.version == 3 ? "1.1.0" : "1.0.0",
+          verboseRootTerm
+        )
+      }
+    }
+
+    return script
+  })
 
 export { eval$ as eval }
 

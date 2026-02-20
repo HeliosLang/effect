@@ -234,13 +234,16 @@ export const decodeRoot = (bytes: Bytes.BytesLike) => {
   return decode({})(r)
 }
 
-export const encodeRoot = (uplcVersion: "1.0.0" | "1.1.0", term: Term): Uint8Array => {
+export const encodeRoot = (
+  uplcVersion: "1.0.0" | "1.1.0",
+  term: Term
+): Uint8Array => {
   const w = Flat.makeWriter()
 
   uplcVersion.split(".").forEach((v) => {
     w.writeInt(Number(v))
   })
-  
+
   encode(w)(term)
 
   return Bytes.toUint8Array(w.finalize())
