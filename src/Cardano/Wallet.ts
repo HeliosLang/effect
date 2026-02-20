@@ -1,17 +1,32 @@
-import { Effect } from "effect"
+import { Context, Effect } from "effect"
 import * as Bip32 from "../Crypto/Bip32.js"
 import * as Bip39 from "../Crypto/Bip39.js"
 import * as Address from "./Ledger/Address.js"
 import * as PubKey from "./Ledger/PubKey.js"
+import * as Signature from "./Ledger/Signature.js"
 import * as Tx from "./Ledger/Tx.js"
+import * as UTxO from "./Ledger/UTxO.js"
 import * as Network from "./Network"
+
+export class Balancing extends Context.Tag("Cardano.Wallet.Balancing")<
+  Balancing,
+  {
+    changeAddress: Effect.Effect<Address.Address> // TODO: allow a specific kind of error?
+    utxos: Effect.Effect<UTxO.UTxO[], Error> // TODO: a specific kind of error?
+    signTx(tx: Tx.Tx): Effect.Effect<Signature.Signature[], Error> // TODO: a specific kind of error?
+  }
+>() {}
 
 /**
  * @param phrase
  * Space separated
  * @returns
  */
-export const Simple = (phrase: string | string[], account: number = 0) =>
+export const Phrase = (
+  phrase: string | string[],
+  account: number = 0,
+  subAccount: number = 0
+) =>
   Effect.gen(function* () {
     /**
      * First turn phrase into private key
@@ -27,7 +42,7 @@ export const Simple = (phrase: string | string[], account: number = 0) =>
       1815 + Bip32.HARDEN,
       account + Bip32.HARDEN,
       0,
-      0
+      subAccount
     ])
     const spendingPublicKey = Bip32.deriveVerificationKey(spendingPrivateKey)
     const spendingPubKeyHash = PubKey.hash(spendingPublicKey)
@@ -48,3 +63,7 @@ export const Simple = (phrase: string | string[], account: number = 0) =>
         Effect.succeed([Bip32.sign(spendingPrivateKey)(Tx.hash(tx))])
     }
   })
+
+export const Browser = (_handle: unknown) => {
+  throw new Error("not yet implemented")
+}

@@ -12,7 +12,6 @@ import {
   PubKeyHash,
   Redeemer,
   RewardAddress,
-  Signature,
   Tx,
   TxOutput,
   UTxO,
@@ -21,6 +20,7 @@ import {
 } from "./Ledger"
 import * as Network from "./Network"
 import * as Uplc from "./Uplc"
+import { Balancing as BalancingWallet } from "./Wallet.js"
 
 /**
  * It is difficult to give RedeemerBuilder access to the whole Tx including to Tx.Witnesses, because this leads to circular dependencies
@@ -1016,17 +1016,6 @@ function addSigner(b: TxBuilder, signer: PubKeyHash.PubKeyHash): TxBuilder {
 function hasSigner(b: TxBuilder, signer: PubKeyHash.PubKeyHash) {
   return b.signers.includes(signer)
 }
-
-export class BalancingWallet extends Context.Tag(
-  "Cardano.TxBuilder.BalancingWallet"
-)<
-  BalancingWallet,
-  {
-    changeAddress: Effect.Effect<Address.Address> // TODO: allow a specific kind of error?
-    utxos: Effect.Effect<UTxO.UTxO[], Error> // TODO: a specific kind of error?
-    signTx(tx: Tx.Tx): Effect.Effect<Signature.Signature[], Error> // TODO: a specific kind of error?
-  }
->() {}
 
 export interface BuildOptions {
   logger?: Uplc.Cek.Logger | undefined
