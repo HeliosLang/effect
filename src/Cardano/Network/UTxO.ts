@@ -9,7 +9,7 @@ import {
 } from "./errors.js"
 
 // TODO: add UTxONotFound and UTxOAlreadySpent errors
-class UTxO$ extends Context.Tag("Network.UTxO")<
+class UTxO$ extends Context.Tag("Cardano.Network.UTxO")<
   UTxO$,
   (
     ref: UTxORef

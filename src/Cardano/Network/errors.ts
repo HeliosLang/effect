@@ -1,4 +1,5 @@
 import { Data } from "effect"
+import type { Tx } from "../Ledger/Tx.js"
 import type { TxHash } from "../Ledger/TxHash.js"
 import type { UTxO } from "../Ledger/UTxO.js"
 import type { UTxORef } from "../Ledger/UTxORef.js"
@@ -47,5 +48,13 @@ export class UTxOAlreadySpent extends Data.TaggedError(
       spendingTx,
       message: `UTxO ${utxo.ref} already spent by ${spendingTx}`
     })
+  }
+}
+
+export class SubmitTxFailed extends Data.TaggedError(
+  "Cardano.Network.SubmitTxFailed"
+)<{ message: string; tx: Tx }> {
+  constructor(message: string, tx: Tx) {
+    super({ message, tx })
   }
 }

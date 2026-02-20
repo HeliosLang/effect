@@ -41,7 +41,7 @@ export const Params = Schema.Struct({
 
 export type Params = Schema.Schema.Type<typeof Params>
 
-export class params extends Context.Tag("Network.Params.params")<
+export class params extends Context.Tag("Cardano.Network.Params.params")<
   params,
   Params
 >() {}
