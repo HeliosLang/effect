@@ -1,4 +1,4 @@
-import { Context, Effect, Option, Schema } from "effect"
+import { Context, Effect, Option, ParseResult, Schema } from "effect"
 import {
   FromUplcData as DatumHashFromUplcData,
   hash as hashDatum
@@ -162,9 +162,14 @@ const PurposeV2 = Schema.transformOrFail(
   Schema.typeSchema(Redeemer),
   {
     strict: true,
-    decode: (_purpose) => {
-      throw new Error("can't reconstruct redeemer from purpose")
-    },
+    decode: (purpose, _, ast) =>
+      ParseResult.fail(
+        new ParseResult.Forbidden(
+          ast,
+          purpose,
+          "Can't decode purpose into redeemer."
+        )
+      ),
     encode: (redeemer: Redeemer) =>
       CurrentTx.pipe(
         Effect.map((tx) => {
@@ -217,9 +222,14 @@ const PurposeV3 = Schema.transformOrFail(
   Schema.typeSchema(Redeemer),
   {
     strict: true,
-    decode: (_purpose) => {
-      throw new Error("can't reconstruct redeemer from purpose")
-    },
+    decode: (purpose, _, ast) =>
+      ParseResult.fail(
+        new ParseResult.Forbidden(
+          ast,
+          purpose,
+          "Can't decode purpose into redeemer."
+        )
+      ),
     encode: (redeemer: Redeemer) =>
       CurrentTx.pipe(
         Effect.map((tx) => {
