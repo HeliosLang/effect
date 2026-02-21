@@ -58,8 +58,6 @@ export const DEFAULT_PROPS: Props = {
   strict: false
 }
 
-export const DEFAULT: Base32 = /* @__PURE__ */ make()
-
 /**
  * @param props
  * @returns
@@ -292,6 +290,11 @@ class Base32Impl implements Base32 {
     })
   }
 }
+
+/**
+ * Must be called after Base32Impl is defined
+ */
+export const DEFAULT: Base32 = /* @__PURE__ */ make()
 
 /**
  * Trims the padding, asserting it is correctly formed
