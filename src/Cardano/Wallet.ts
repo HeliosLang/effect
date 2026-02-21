@@ -6,7 +6,7 @@ import * as PubKey from "./Ledger/PubKey.js"
 import * as Signature from "./Ledger/Signature.js"
 import * as Tx from "./Ledger/Tx.js"
 import * as UTxO from "./Ledger/UTxO.js"
-import * as Network from "./Network"
+import * as Network from "./Network/index.js"
 
 export class Balancing extends Context.Tag("Cardano.Wallet.Balancing")<
   Balancing,

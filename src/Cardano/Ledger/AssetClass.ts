@@ -1,6 +1,6 @@
 import { Encoding, Schema } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
-import { Data } from "../Uplc"
+import * as Data from "../Uplc/Data.js"
 import * as MintingPolicy from "./MintingPolicy.js"
 
 export function isValid(assetClass: string): assetClass is AssetClass {

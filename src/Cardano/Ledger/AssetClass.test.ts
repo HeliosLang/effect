@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import * as AssetClass from "./AssetClass"
+import * as AssetClass from "./AssetClass.js"
 
 describe("AssetClass.isValid", () => {
   it("empty string is valid", () => {

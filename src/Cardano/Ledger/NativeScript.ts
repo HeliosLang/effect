@@ -1,7 +1,7 @@
 import { Either, Encoding, Schema } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Cbor from "../../Codecs/Cbor.js"
-import * as Crypto from "../../Crypto"
+import * as Crypto from "../../Crypto/index.js"
 import * as PubKeyHash from "./PubKeyHash.js"
 import * as ValidatorHash from "./ValidatorHash.js"
 

@@ -8,8 +8,8 @@
     "noImplicitThis": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    "moduleResolution": "node",
-    "module": "esnext",
+    "moduleResolution": "nodenext",
+    "module": "nodenext",
     "target": "esnext",
     "lib": ["esnext"],
     "exactOptionalPropertyTypes": true,
@@ -31,7 +31,8 @@
     "checkJs": false,
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": false,
-    "incremental": true
+    "incremental": true,
+    "verbatimModuleSyntax": true
   },
   "exclude": ["node_modules", "**/*.d.ts"],
   "include": ["src/**/*.ts"]

@@ -17,10 +17,10 @@ import {
   UTxO,
   UTxORef,
   ValidatorHash
-} from "./Ledger"
-import * as Network from "./Network"
+} from "./Ledger/index.js"
+import * as Network from "./Network/index.js"
 import * as ScriptContext from "./ScriptContext.js"
-import * as Uplc from "./Uplc"
+import * as Uplc from "./Uplc/index.js"
 import { Balancing as BalancingWallet } from "./Wallet.js"
 
 /**

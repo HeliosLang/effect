@@ -3,12 +3,12 @@ import * as Bytes from "../../Codecs/Bytes.js"
 import {
   decodeBytes,
   DecodeError,
-  DecodeResult,
+  type DecodeResult,
   encodeBytes
 } from "../../Codecs/Cbor.js"
 import * as Bip32 from "../../Crypto/Bip32.js"
 import * as Blake2b from "../../Crypto/Blake2b.js"
-import { Data } from "../Uplc"
+import * as Data from "../Uplc/Data.js"
 import type { PubKeyHash } from "./PubKeyHash.js"
 
 export const isValid = Bip32.isValidVerificationKey

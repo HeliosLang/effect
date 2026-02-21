@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { Effect } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
-import * as Network from "../Network"
+import * as Network from "../Network/index.js"
 import * as Address from "./Address.js"
 import * as Assets from "./Assets.js"
 import * as UTxO from "./UTxO.js"

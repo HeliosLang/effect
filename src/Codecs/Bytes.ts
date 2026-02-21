@@ -1,5 +1,5 @@
 import { Data, Either, Encoding } from "effect"
-import { encode as encodeIntBE } from "./BigEndian"
+import { encode as encodeIntBE } from "./BigEndian.js"
 
 export type BytesLike = string | number[] | Uint8Array | Stream
 

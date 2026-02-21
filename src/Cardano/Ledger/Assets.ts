@@ -2,7 +2,7 @@ import { Effect, Either, Schema } from "effect"
 import { TaggedError } from "effect/Data" // imported like this to avoid name conflict with Data from Uplc
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Cbor from "../../Codecs/Cbor.js"
-import { Data } from "../Uplc"
+import * as Data from "../Uplc/Data.js"
 import * as AssetClass from "./AssetClass.js"
 import * as MintingPolicy from "./MintingPolicy.js"
 

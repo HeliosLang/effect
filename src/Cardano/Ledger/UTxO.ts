@@ -1,7 +1,7 @@
 import { Effect, Either, Schema } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Cbor from "../../Codecs/Cbor.js"
-import * as Network from "../Network"
+import * as Network from "../Network/index.js"
 import * as Data from "../Uplc/Data.js"
 import * as Assets from "./Assets.js"
 import * as TxOutput from "./TxOutput.js"

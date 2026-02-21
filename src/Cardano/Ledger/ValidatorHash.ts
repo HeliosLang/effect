@@ -1,7 +1,11 @@
 import { Either, Encoding, Schema } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
-import { decodeBytes, DecodeResult, encodeBytes } from "../../Codecs/Cbor.js"
-import { Data } from "../Uplc"
+import {
+  decodeBytes,
+  type DecodeResult,
+  encodeBytes
+} from "../../Codecs/Cbor.js"
+import * as Data from "../Uplc/Data.js"
 
 export function isValid(vh: string): boolean {
   return /^[0-9a-fA-F]+$/.test(vh) && vh.length == 56

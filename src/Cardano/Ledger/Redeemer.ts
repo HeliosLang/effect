@@ -1,7 +1,7 @@
 import { Either, Schema } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Cbor from "../../Codecs/Cbor.js"
-import { Cost, Data } from "../Uplc"
+import { Cost, Data } from "../Uplc/index.js"
 
 export const Minting = Schema.TaggedStruct("Minting", {
   policyIndex: Schema.Number,

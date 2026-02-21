@@ -1,7 +1,7 @@
 import { Data, Either, Encoding } from "effect"
 import { type Curve, CurveHelper, type Point2I } from "./Curve.js"
 import * as Sha2_512 from "./Sha2_512.js"
-import { Field } from "./Field.js"
+import { type Field } from "./Field.js"
 
 export class BadPrivateKeyLength extends Data.TaggedError(
   "Crypto.EdDSA.BadPrivateKeyLength"

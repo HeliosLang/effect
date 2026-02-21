@@ -1,7 +1,7 @@
 import { Data, Either, Encoding } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Utf8 from "../../Codecs/Utf8.js"
-import * as Crypto from "../../Crypto"
+import * as Crypto from "../../Crypto/index.js"
 import type { MachineContext, Value as CekValue } from "./Cek.js"
 import * as Cost from "./Cost.js"
 import { toString as dataToString, encode as encodeData } from "./Data.js"

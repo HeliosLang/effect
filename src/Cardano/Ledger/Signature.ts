@@ -2,7 +2,7 @@ import { Either, Schema } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
 import {
   decodeBytes,
-  DecodeResult,
+  type DecodeResult,
   decodeTuple,
   encodeBytes,
   encodeTuple
