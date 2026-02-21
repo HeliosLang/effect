@@ -1,3 +1,4 @@
+export * as AssetMetadata from "./AssetMetadata.js"
 export * from "./errors.js"
 export * from "./IsMainnet.js"
 export * as Params from "./Params.js"
