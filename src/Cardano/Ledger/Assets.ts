@@ -280,6 +280,16 @@ export function isEmpty(assets: Assets): boolean {
   return Object.keys(assets).length == 0
 }
 
+export function containsOnlyAda(assets: Assets): boolean {
+  for (const key in assets) {
+    if (key != "") {
+      return false
+    }
+  }
+
+  return true
+}
+
 export function allPositive(assets: Assets): boolean {
   return Object.values(assets).every((qty) => qty > 0n)
 }
@@ -307,4 +317,16 @@ export function assertAllPositive(assets: Assets) {
  */
 export function countTokens(assets: Assets): number {
   return Object.keys(assets).filter((name) => name != "").length
+}
+
+export function pretty(assets: Assets): string {
+  let s = "{"
+
+  for (const key in assets) {
+    s += key + ":" + assets[key].toString() + ","
+  }
+
+  s += "}"
+
+  return s
 }

@@ -1,9 +1,10 @@
-import { Effect, Either, Encoding } from "effect"
+import { Console, Effect, Either, Encoding } from "effect"
+import { TaggedError } from "effect/Data"
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Cbor from "../../Codecs/Cbor.js"
 import * as Crypto from "../../Crypto/index.js"
 import * as Params from "../Network/Params.js"
-import { Data, Script } from "../Uplc/index.js"
+import { Cek, Data, Script } from "../Uplc/index.js"
 import * as Address from "./Address.js"
 import * as Assets from "./Assets.js"
 import * as DCert from "./DCert.js"
@@ -731,6 +732,22 @@ export const minFee = (tx: Tx) =>
     return sizeFee + exFee + rsFee
   })
 
+export const minCollateral = (tx: Tx) =>
+  Effect.gen(function* () {
+    if (!isSmart(tx)) {
+      return 0n
+    }
+
+    const params = yield* Params.params
+
+    const fee = tx.body.fee
+    const pct = params.collateralPercentage
+
+    const mc = BigInt(Math.ceil((pct * Number(fee)) / 100.0))
+
+    return mc
+  })
+
 export const inputDatum = (inputIndex: number) => (tx: Tx) => {
   const datum = tx.body.inputs[inputIndex]?.output?.datum
 
@@ -811,4 +828,141 @@ export const scriptDataHash = (tx: Tx) =>
     bytes = bytes.concat(Cbor.encodeMap(encodedCostModels))
 
     return Bytes.toArray(Crypto.Blake2b.hashSync(bytes))
+  })
+
+export class InvalidTx extends TaggedError("Cardano.Ledger.Tx.InvalidTx")<{
+  message: string
+}> {
+  constructor(reason: string) {
+    super({ message: `Invalid tx (${reason})` })
+  }
+}
+export type ValidationOptions = {
+  strict?: boolean | undefined
+  verbose?: boolean | undefined
+  logger?: Cek.Logger | undefined
+}
+
+export const validate =
+  ({
+    strict = false,
+    verbose: _verbose = false,
+    logger: _logger = undefined
+  }: ValidationOptions = {}) =>
+  (tx: Tx) =>
+    Effect.gen(function* () {
+      yield* validateSize(tx)
+
+      yield* validateFee(tx)
+
+      yield* validateConservation(tx)
+
+      yield* validateCollateral(strict)(tx)
+    })
+
+const validateSize = (tx: Tx) =>
+  Effect.gen(function* () {
+    const params = yield* Params.params
+
+    const s = size()(tx)
+    if (s > params.maxTxSize) {
+      return yield* new InvalidTx(`size too big, ${s} > ${params.maxTxSize}`)
+    }
+  })
+
+const validateFee = (tx: Tx) =>
+  Effect.gen(function* () {
+    const f = yield* minFee(tx)
+
+    if (tx.body.fee < f) {
+      return yield* new InvalidTx(
+        `fee too small, expected at least ${f} but got ${tx.body.fee}`
+      )
+    }
+  })
+
+const validateConservation = (tx: Tx) =>
+  Effect.gen(function* () {
+    const params = yield* Params.params
+
+    let sum: Assets.Assets = UTxO.sumAssets(...tx.body.inputs)
+    sum = tx.body.dcerts.reduce(
+      (prev, dcert) =>
+        dcert._tag == "Deregistration"
+          ? Assets.add(prev, { "": BigInt(params.stakeAddrDeposit) })
+          : dcert._tag == "Registration"
+            ? Assets.subtract(prev, { "": BigInt(params.stakeAddrDeposit) })
+            : prev,
+      sum
+    )
+    sum = Assets.subtract(sum, { "": tx.body.fee })
+    sum = Assets.add(sum, tx.body.minted)
+    sum = Assets.subtract(sum, TxOutput.sumAssets(...tx.body.outputs))
+
+    if (!Assets.isEmpty(sum)) {
+      return yield* new InvalidTx(
+        `value not conserved (diff: ${Assets.pretty(sum)})`
+      )
+    }
+  })
+
+const validateCollateral = (strict: boolean) => (tx: Tx) =>
+  Effect.gen(function* () {
+    const params = yield* Params.params
+
+    if (tx.body.collateral.length > params.maxCollateralInputs) {
+      return yield* new InvalidTx(
+        `too many collateral inputs (${tx.body.collateral.length} > ${params.maxCollateralInputs})`
+      )
+    }
+
+    if (!isSmart(tx)) {
+      if (strict && tx.body.collateral.length != 0) {
+        return yield* new InvalidTx(`unnecessary collateral included`)
+      }
+
+      return
+    }
+
+    // skip this validation if the NetworkParams.collateralUTXO is used (we can assume that such a UTXO is always clean and contains enough lovelace)
+    if (
+      params.collateralUTXO !== undefined &&
+      tx.body.collateral.some((utxo) => utxo.ref == params.collateralUTXO)
+    ) {
+      return
+    }
+
+    const mc = yield* minCollateral(tx)
+
+    let sum: bigint = 0n
+
+    for (const utxo of tx.body.collateral) {
+      if (!Assets.containsOnlyAda(utxo.output.assets)) {
+        return yield* new InvalidTx(
+          `collateral can only contain lovelace (collateral utxo ${utxo.ref} contains ${Object.keys(utxo.output.assets).join(", ")})`
+        )
+      }
+
+      sum += utxo.output.assets[""] ?? 0n
+    }
+
+    if (tx.body.collateralReturn !== undefined) {
+      if (!Assets.containsOnlyAda(tx.body.collateralReturn.assets)) {
+        return yield* new InvalidTx(
+          `collateral return can only contain lovelace (collateral return contains ${Object.keys(tx.body.collateralReturn.assets).join(", ")})`
+        )
+      }
+
+      sum -= tx.body.collateralReturn.assets[""] ?? 0n
+    }
+
+    if (sum < mc) {
+      return yield* new InvalidTx(
+        `insufficient collateral lovelace (${sum} < ${mc})`
+      )
+    }
+
+    if (sum > mc * 5n) {
+      yield* Console.warn(`way too much collateral (${sum} >> ${mc})`)
+    }
   })

@@ -58,3 +58,15 @@ export class SubmitTxFailed extends Data.TaggedError(
     super({ message, tx })
   }
 }
+
+export class TxNotFound extends Data.TaggedError("Cardano.Network.TxNotFound")<{
+  message: string
+  txHash: TxHash
+}> {
+  constructor(txHash: TxHash) {
+    super({
+      txHash,
+      message: `Tx ${txHash} not found`
+    })
+  }
+}

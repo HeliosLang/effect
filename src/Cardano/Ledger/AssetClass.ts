@@ -94,6 +94,11 @@ export function policy(assetClass: string): MintingPolicy.MintingPolicy {
   }
 }
 
+/**
+ * @param assetClass
+ * @returns
+ * The hex-encoded token name
+ */
 export function tokenName(assetClass: string): string {
   if (assetClass.length == 0) {
     return ""
