@@ -55,6 +55,7 @@ export const Phrase = (
     const utxosAt = yield* Network.UTxOsAt
 
     return {
+      addressSync: address,
       changeAddress: Effect.succeed(address),
       utxos: utxosAt(address).pipe(
         Effect.mapError((e) => new Error(e.message))

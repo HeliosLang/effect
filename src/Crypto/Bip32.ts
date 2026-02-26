@@ -49,6 +49,9 @@ function makeSigningKeyUnsafe(bytes: Bytes.BytesLike): string {
   return Bech32.encode("addr_sk", Bytes.toUint8Array(bytes))
 }
 
+export const makeSigningKey = (bytes: Bytes.BytesLike) => {
+  return Schema.decode(SigningKey)(makeSigningKeyUnsafe(bytes))
+}
 export function isValidVerificationKey(pk: string): boolean {
   if (pk.startsWith("addr_vk")) {
     const decodeResult = Bech32.decode(pk)
@@ -141,7 +144,7 @@ export const vkBytes = (vk: VerificationKey): Uint8Array =>
 export const deriveVerificationKey = (sk: SigningKey): VerificationKey =>
   Bech32.encode(
     "addr_vk",
-    Either.getOrThrow(Ed25519.derivePublicKey(skBytes(sk), false))
+    Either.getOrThrow(Ed25519.derivePublicKey(k(sk), false))
   ) as VerificationKey
 
 const k = (sk: SigningKey): Uint8Array => skBytes(sk).slice(0, 64)
