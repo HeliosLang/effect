@@ -48,10 +48,24 @@ export class params extends Context.Tag("Cardano.Network.Params.params")<
 
 /**
  * Calculates the time (in milliseconds in 01/01/1970) associated with a given slot number.
+ *
+ * The guards throwing defects help during debugging
  */
 export const slotToTime = (slot: number) =>
   params.pipe(
     Effect.map((p) => {
+      if (p.refTipSlot === undefined) {
+        throw new Error(`Network.Params.params.refTipSlot is undefined`)
+      }
+
+      if (p.refTipTime === undefined) {
+        throw new Error(`Network.Params.params.refTipTime is undefined`)
+      }
+
+      if (p.secondsPerSlot === undefined) {
+        throw new Error(`Network.Params.params.secondsPerSlot is undefined`)
+      }
+
       const slotDiff = slot - p.refTipSlot
 
       return p.refTipTime + slotDiff * p.secondsPerSlot * 1000
@@ -60,25 +74,57 @@ export const slotToTime = (slot: number) =>
 
 /**
  * Calculates the slot number associated with a given time. Time is specified as milliseconds since 01/01/1970.
+ *
+ * The guards throwing defects help during debugging
  */
 export const timeToSlot = (time: number) =>
   params.pipe(
     Effect.map((p) => {
+      if (p.refTipSlot === undefined) {
+        throw new Error(`Network.Params.params.refTipSlot is undefined`)
+      }
+
+      if (p.refTipTime === undefined) {
+        throw new Error(`Network.Params.params.refTipTime is undefined`)
+      }
+
+      if (p.secondsPerSlot === undefined) {
+        throw new Error(`Network.Params.params.secondsPerSlot is undefined`)
+      }
+
       const timeDiff = time - p.refTipTime
 
       return p.refTipSlot + Math.round(timeDiff / (1000 * p.secondsPerSlot))
     })
   )
 
+/**
+ * The guards throwing defects help during debugging
+ */
 export const costModel = (version: 1 | 2 | 3) =>
   params.pipe(
     Effect.map((p) => {
       switch (version) {
         case 1:
+          if (p.costModelParamsV1 === undefined) {
+            throw new Error(
+              `Network.Params.params.costModelParamsV1 is undefined`
+            )
+          }
           return p.costModelParamsV1
         case 2:
+          if (p.costModelParamsV2 === undefined) {
+            throw new Error(
+              `Network.Params.params.costModelParamsV2 is undefined`
+            )
+          }
           return p.costModelParamsV2
         case 3:
+          if (p.costModelParamsV3 === undefined) {
+            throw new Error(
+              `Network.Params.params.costModelParamsV3 is undefined`
+            )
+          }
           return p.costModelParamsV3
       }
     })

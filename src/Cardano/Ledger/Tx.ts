@@ -710,24 +710,54 @@ const refScriptsFee =
 
 export const minFee = (tx: Tx) =>
   Effect.gen(function* () {
-    const params = yield* Params.params
+    const p = yield* Params.params
+
+    if (p.txFeeFixed === undefined) {
+      throw new Error(
+        `Network.Params.params.txFeeFixed undefined in Cardano.Ledger.Tx.minFee()`
+      )
+    }
+
+    if (p.txFeePerByte === undefined) {
+      throw new Error(
+        `Network.Params.params.txFeePerByte undefined in Cardano.Ledger.Tx.minFee()`
+      )
+    }
 
     const sizeFee =
-      BigInt(params.txFeeFixed) +
-      BigInt(size(true)(tx)) * BigInt(params.txFeePerByte)
+      BigInt(p.txFeeFixed) + BigInt(size(true)(tx)) * BigInt(p.txFeePerByte)
 
     const { mem: totalMem, cpu: totalCpu } = tx.witnesses.redeemers.reduce(
       (cost, r) => ({ cpu: cost.cpu + r.cost.cpu, mem: cost.mem + r.cost.mem }),
       { cpu: 0n, mem: 0n }
     )
+
+    if (p.exMemFeePerUnit === undefined) {
+      throw new Error(
+        `Network.Params.params.exMemFeePerUnit undefined in Cardano.Ledger.Tx.minFee()`
+      )
+    }
+
+    if (p.exCpuFeePerUnit === undefined) {
+      throw new Error(
+        `Network.Params.params.exCpuFeePerUnit undefined in Cardano.Ledger.Tx.minFee()`
+      )
+    }
+
     const exFee = BigInt(
       Math.ceil(
-        Number(totalMem) * params.exMemFeePerUnit +
-          Number(totalCpu) * params.exCpuFeePerUnit
+        Number(totalMem) * p.exMemFeePerUnit +
+          Number(totalCpu) * p.exCpuFeePerUnit
       )
     )
 
-    const rsFee = refScriptsFee(params.refScriptsFeePerByte)(tx)
+    if (p.refScriptsFeePerByte === undefined) {
+      throw new Error(
+        `Network.Params.params.refScriptsFeePerByte undefined in Cardano.Ledger.Tx.minFee()`
+      )
+    }
+
+    const rsFee = refScriptsFee(p.refScriptsFeePerByte)(tx)
 
     return sizeFee + exFee + rsFee
   })
@@ -738,10 +768,16 @@ export const minCollateral = (tx: Tx) =>
       return 0n
     }
 
-    const params = yield* Params.params
+    const p = yield* Params.params
+
+    if (p.collateralPercentage === undefined) {
+      throw new Error(
+        `Network.Params.params.collateralPercentage undefined in Cardano.Ledger.Tx.minFee()`
+      )
+    }
 
     const fee = tx.body.fee
-    const pct = params.collateralPercentage
+    const pct = p.collateralPercentage
 
     const mc = BigInt(Math.ceil((pct * Number(fee)) / 100.0))
 
@@ -860,16 +896,28 @@ export const validate =
       yield* validateCollateral(strict)(tx)
     })
 
+/**
+ * The guards throwing defects help during debugging
+ */
 const validateSize = (tx: Tx) =>
   Effect.gen(function* () {
-    const params = yield* Params.params
+    const p = yield* Params.params
+
+    if (p.maxTxSize === undefined) {
+      throw new Error(
+        `Network.Params.params.maxTxSize undefined in Cardano.Ledger.Tx.validateSize()`
+      )
+    }
 
     const s = size()(tx)
-    if (s > params.maxTxSize) {
-      return yield* new InvalidTx(`size too big, ${s} > ${params.maxTxSize}`)
+    if (s > p.maxTxSize) {
+      return yield* new InvalidTx(`size too big, ${s} > ${p.maxTxSize}`)
     }
   })
 
+/**
+ * The guards throwing defects help during debugging
+ */
 const validateFee = (tx: Tx) =>
   Effect.gen(function* () {
     const f = yield* minFee(tx)
@@ -881,17 +929,26 @@ const validateFee = (tx: Tx) =>
     }
   })
 
+/**
+ * The guards throwing defects help during debugging
+ */
 const validateConservation = (tx: Tx) =>
   Effect.gen(function* () {
-    const params = yield* Params.params
+    const p = yield* Params.params
+
+    if (p.stakeAddrDeposit === undefined) {
+      throw new Error(
+        `Network.Params.params.stakeAddrDeposit undefined in Cardano.Ledger.Tx.validateConservation()`
+      )
+    }
 
     let sum: Assets.Assets = UTxO.sumAssets(...tx.body.inputs)
     sum = tx.body.dcerts.reduce(
       (prev, dcert) =>
         dcert._tag == "Deregistration"
-          ? Assets.add(prev, { "": BigInt(params.stakeAddrDeposit) })
+          ? Assets.add(prev, { "": BigInt(p.stakeAddrDeposit) })
           : dcert._tag == "Registration"
-            ? Assets.subtract(prev, { "": BigInt(params.stakeAddrDeposit) })
+            ? Assets.subtract(prev, { "": BigInt(p.stakeAddrDeposit) })
             : prev,
       sum
     )
@@ -906,13 +963,22 @@ const validateConservation = (tx: Tx) =>
     }
   })
 
+/**
+ * The guards throwing defects help during debugging
+ */
 const validateCollateral = (strict: boolean) => (tx: Tx) =>
   Effect.gen(function* () {
-    const params = yield* Params.params
+    const p = yield* Params.params
 
-    if (tx.body.collateral.length > params.maxCollateralInputs) {
+    if (p.maxCollateralInputs === undefined) {
+      throw new Error(
+        `Network.Params.params.maxCollateralInputs undefined in Cardano.Ledger.Tx.validateCollateral()`
+      )
+    }
+
+    if (tx.body.collateral.length > p.maxCollateralInputs) {
       return yield* new InvalidTx(
-        `too many collateral inputs (${tx.body.collateral.length} > ${params.maxCollateralInputs})`
+        `too many collateral inputs (${tx.body.collateral.length} > ${p.maxCollateralInputs})`
       )
     }
 
@@ -926,8 +992,8 @@ const validateCollateral = (strict: boolean) => (tx: Tx) =>
 
     // skip this validation if the NetworkParams.collateralUTXO is used (we can assume that such a UTXO is always clean and contains enough lovelace)
     if (
-      params.collateralUTXO !== undefined &&
-      tx.body.collateral.some((utxo) => utxo.ref == params.collateralUTXO)
+      p.collateralUTXO !== undefined &&
+      tx.body.collateral.some((utxo) => utxo.ref == p.collateralUTXO)
     ) {
       return
     }
