@@ -1085,7 +1085,9 @@ export const build =
        */
       const { firstValidSlot, lastValidSlot } = yield* buildValidityTimeRange
 
-      yield* Console.log(`Built validatity slots: ${firstValidSlot}:${lastValidSlot}`)
+      yield* Console.log(
+        `Built validatity slots: ${firstValidSlot}:${lastValidSlot}`
+      )
 
       /**
        * Make sure the outputs contain enough lovelace
@@ -1166,6 +1168,7 @@ export const build =
        */
       yield* Console.log(`Start loop`)
       while (tx.body.fee < (yield* Tx.minFee(tx))) {
+        yield* Console.log(`Updating fee`)
         tx = yield* updateFee(tx)
 
         yield* Console.log(`Updated fee`)
@@ -1410,7 +1413,7 @@ const profileRedeemer =
       yield* Console.log(`Profiling redeemer of ${vh}`)
 
       const script = getUplcScript(b, vh)
-      
+
       const args: Uplc.Value.Value[] = yield* ScriptContext.makeArgs(
         script.version,
         tx,

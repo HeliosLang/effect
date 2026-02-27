@@ -697,14 +697,12 @@ const refScriptsFee =
     let fee = 0n
 
     while (s > growthIncrement) {
-      fee += BigInt(
-        Math.floor(Number(growthIncrement) * multiplier * feePerByte)
-      )
+      fee += BigInt(Math.floor(growthIncrement * multiplier * feePerByte))
       s -= growthIncrement
       multiplier *= growthFactor
     }
 
-    fee += BigInt(Math.floor(Number(size) * multiplier * feePerByte))
+    fee += BigInt(Math.floor(s * multiplier * feePerByte))
     return fee
   }
 
@@ -729,7 +727,7 @@ export const minFee = (tx: Tx) =>
     if (!Number.isFinite(s)) {
       throw new Error(`tx size not finite in Cardano.Ledger.Tx.minFee()`)
     }
-    
+
     const sizeFee =
       BigInt(p.txFeeFixed) + BigInt(size(true)(tx)) * BigInt(p.txFeePerByte)
 
