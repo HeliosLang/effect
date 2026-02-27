@@ -38,6 +38,14 @@ export type IntData = Schema.Schema.Type<typeof IntDataFromJSON>
 export type IntDataJSON = Schema.Schema.Encoded<typeof IntDataFromJSON>
 
 export function makeIntData(value: number | bigint): IntData {
+  if (value === undefined) {
+    throw new Error(`value undefined in Cardano.Uplc.Data.makeIntData()`)
+  }
+
+  if (Number.isNaN(value)) {
+    throw new Error(`value NaN in Cardano.Uplc.Data.makeIntData()`)
+  }
+
   return { int: BigInt(value) }
 }
 
@@ -325,9 +333,13 @@ export const Int = Schema.transformOrFail(Data, Schema.Int, {
       return ParseResult.fail(
         new ParseResult.Unexpected(value, "not an integer")
       )
-    } else {
-      return ParseResult.succeed({ int: BigInt(Math.round(value)) })
     }
+
+    if (Number.isNaN(value)) {
+      return ParseResult.fail(new ParseResult.Unexpected(value, "NaN"))
+    }
+
+    return ParseResult.succeed({ int: BigInt(Math.round(value)) })
   }
 })
 
@@ -350,6 +362,10 @@ export const Real = (decimals: number = 6) => {
       }
     },
     encode: (value) => {
+      if (Number.isNaN(value)) {
+        return ParseResult.fail(new ParseResult.Unexpected(value, "NaN"))
+      }
+
       return ParseResult.succeed({ int: BigInt(Math.round(value * precision)) })
     }
   })

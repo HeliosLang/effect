@@ -47,7 +47,9 @@ export interface Model {
 }
 
 function getParamOrThrow(params: Params, index: number): bigint {
-  return BigInt(Option.fromNullable(params[index]).pipe(Option.getOrThrow))
+  const x = Option.fromNullable(params[index]).pipe(Option.getOrThrow)
+
+  return BigInt(x)
 }
 
 export function makeModel(params: Params, builtins: readonly Builtin[]): Model {
