@@ -343,7 +343,7 @@ const encodeBody =
     }
 
     if (!Assets.isEmpty(body.minted)) {
-      m.set(9, Assets.encode(body.minted))
+      m.set(9, Assets.encode({ withoutLovelace: true })(body.minted))
     }
 
     if (body.scriptDataHash !== undefined) {

@@ -211,7 +211,7 @@ export function encode(output: TxOutput): number[] {
 
     const fields = [
       Address.encode(output.address),
-      Assets.encode(output.assets)
+      Assets.encode({ withoutLovelace: false })(output.assets)
     ]
 
     if (output.datum && "hash" in output.datum) {
@@ -223,7 +223,7 @@ export function encode(output: TxOutput): number[] {
     const object: Map<number, number[]> = new Map()
 
     object.set(0, Address.encode(output.address))
-    object.set(1, Assets.encode(output.assets))
+    object.set(1, Assets.encode({ withoutLovelace: false })(output.assets))
 
     if (output.datum) {
       object.set(2, TxOutputDatum.encode(output.datum))
@@ -261,7 +261,7 @@ export const minLovelace = (output: TxOutput) =>
       // 160 accounts for some database overhead?
       const correctedSize = encode(output).length + 160
 
-      if (!Number.isFinite) {
+      if (!Number.isFinite(correctedSize)) {
         throw new Error(
           "correctedSize isn't finite in Cardano.Ledger.TxOutput.minLovelace()"
         )

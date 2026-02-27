@@ -125,25 +125,51 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Assets> =>
       }
 
       return assets as Assets
+    } else if (Cbor.isMap(bytes)) {
+      const otherAssets = yield* Cbor.decodeMap(
+        MintingPolicy.decode,
+        Cbor.decodeMap(Cbor.decodeBytes, Cbor.decodeInt)
+      )(stream)
+
+      const assets: Record<string, bigint> = {}
+
+      for (const [policy, inner] of otherAssets) {
+        if (policy == "") {
+          return yield* Either.left(
+            new Cbor.DecodeError(
+              stream,
+              "unexpected ADA assetclass in encoded non-ADA assets"
+            )
+          )
+        }
+
+        for (const [tokenName, quantity] of inner) {
+          const assetClass = AssetClass.make(policy, tokenName)
+
+          assets[assetClass] = quantity
+        }
+      }
+
+      return assets as Assets
     } else {
       return { [AssetClass.ADA]: yield* Cbor.decodeInt(stream) }
     }
   })
 
-export function encode(assets: Assets): number[] {
-  const acs = nonAdaAssetClasses(assets)
+export const encode =
+  ({ withoutLovelace = false }: { withoutLovelace?: boolean }) =>
+  (assets: Assets): number[] => {
+    const acs = nonAdaAssetClasses(assets)
 
-  if (acs.length == 0) {
-    return Cbor.encodeInt(lovelace(assets))
-  } else {
-    const obj = nestedRecords(assets)
-    if (AssetClass.ADA in obj) {
-      delete obj[AssetClass.ADA]
-    }
+    if (acs.length == 0) {
+      return Cbor.encodeInt(lovelace(assets))
+    } else if (withoutLovelace) {
+      const obj = nestedRecords(assets)
+      if (AssetClass.ADA in obj) {
+        delete obj[AssetClass.ADA]
+      }
 
-    return Cbor.encodeTuple([
-      Cbor.encodeInt(lovelace(assets)),
-      Cbor.encodeMap(
+      return Cbor.encodeMap(
         Object.entries(obj).map(([mph, tokens]) => {
           return [
             Cbor.encodeBytes(mph),
@@ -156,9 +182,30 @@ export function encode(assets: Assets): number[] {
           ]
         })
       )
-    ])
+    } else {
+      const obj = nestedRecords(assets)
+      if (AssetClass.ADA in obj) {
+        delete obj[AssetClass.ADA]
+      }
+
+      return Cbor.encodeTuple([
+        Cbor.encodeInt(lovelace(assets)),
+        Cbor.encodeMap(
+          Object.entries(obj).map(([mph, tokens]) => {
+            return [
+              Cbor.encodeBytes(mph),
+              Cbor.encodeMap(
+                Object.entries(tokens).map(([tokenName, qty]) => [
+                  Cbor.encodeBytes(tokenName),
+                  Cbor.encodeInt(qty)
+                ])
+              )
+            ]
+          })
+        )
+      ])
+    }
   }
-}
 
 export function allAssetClasses(assets: Assets): AssetClass.AssetClass[] {
   return Object.keys(assets) as AssetClass.AssetClass[]
