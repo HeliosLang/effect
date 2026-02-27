@@ -142,10 +142,9 @@ export const TxInfoV3 = Data.EnumVariant(0, {
 /**
  * Exported for testing
  */
-export class CurrentTx extends Context.Tag("Cardano.Uplc.ScriptContext.CurrentTx")<
-  CurrentTx,
-  Tx
->() {}
+export class CurrentTx extends Context.Tag(
+  "Cardano.Uplc.ScriptContext.CurrentTx"
+)<CurrentTx, Tx>() {}
 
 /**
  * Uses same tags as Redeemer to make encoding easy
@@ -208,7 +207,7 @@ const PurposeV2 = Schema.transformOrFail(
 
 /**
  * TODO: add voting and proposing redeemers
- * 
+ *
  * Only exported for testing
  */
 export const PurposeV3 = Schema.transformOrFail(

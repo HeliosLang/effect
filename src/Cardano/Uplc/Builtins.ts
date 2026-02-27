@@ -119,6 +119,14 @@ export const subtractIntegerV1: Builtin = {
   cpuModel: Cost.Linear(145, 146)(Cost.Max),
   memModel: Cost.Linear(147, 148)(Cost.Max),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in subtractInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in subtractInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -165,6 +173,14 @@ export const multiplyIntegerV1: Builtin = {
   cpuModel: Cost.Linear(115, 116)(Cost.Sum),
   memModel: Cost.Linear(117, 118)(Cost.Sum),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in multiplyInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in multiplyInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -211,6 +227,14 @@ export const divideIntegerV1: Builtin = {
   cpuModel: Cost.ConstantBelowDiag(49)(Cost.Linear(50, 51)(Cost.Prod)),
   memModel: Cost.AtLeast(53)(Cost.Diff),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in divideInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in divideInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -266,6 +290,14 @@ export const quotientIntegerV1: Builtin = {
   cpuModel: Cost.ConstantBelowDiag(121)(Cost.Linear(122, 123)(Cost.Prod)),
   memModel: Cost.AtLeast(125)(Cost.Diff),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in quotientInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in quotientInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -327,6 +359,14 @@ export const remainderIntegerV1: Builtin = {
   cpuModel: Cost.ConstantBelowDiag(127)(Cost.Linear(128, 129)(Cost.Prod)),
   memModel: Cost.AtLeast(131)(Cost.Diff),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in remainderInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in remainderInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -388,6 +428,14 @@ export const modIntegerV1: Builtin = {
   cpuModel: Cost.ConstantBelowDiag(109)(Cost.Linear(110, 111)(Cost.Prod)),
   memModel: Cost.AtLeast(113)(Cost.Diff),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in modInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in modInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -457,6 +505,14 @@ export const equalsIntegerV1: Builtin = {
   cpuModel: Cost.Linear(66, 67)(Cost.Min),
   memModel: Cost.Constant(68),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in equalsInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in equalsInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -497,6 +553,14 @@ export const lessThanIntegerV1: Builtin = {
   cpuModel: Cost.Linear(94, 95)(Cost.Min),
   memModel: Cost.Constant(96),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in lessThanInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in lessThanInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -537,6 +601,14 @@ export const lessThanEqualsIntegerV1: Builtin = {
   cpuModel: Cost.Linear(91, 92)(Cost.Min),
   memModel: Cost.Constant(93),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in lessThanEqualsInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in lessThanEqualsInteger()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -577,6 +649,14 @@ export const appendByteStringV1: Builtin = {
   cpuModel: Cost.Linear(4, 5)(Cost.Sum),
   memModel: Cost.Linear(6, 7)(Cost.Sum),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in appendByteString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in appendByteString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -611,6 +691,14 @@ export const consByteStringV1: Builtin = {
   cpuModel: Cost.Linear(39, 40)(Cost.Second),
   memModel: Cost.Linear(41, 42)(Cost.Sum),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in consByteString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in consByteString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -645,6 +733,18 @@ export const sliceByteStringV1: Builtin = {
   cpuModel: Cost.Linear(139, 140)(Cost.Third),
   memModel: Cost.Linear(141, 142)(Cost.Third),
   call: ([a, b, c]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in sliceByteString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in sliceByteString()")
+    }
+
+    if (c === undefined) {
+      throw new Error("c is undefined in sliceByteString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -707,6 +807,10 @@ export const lengthOfByteStringV1: Builtin = {
   cpuModel: Cost.Constant(83),
   memModel: Cost.Constant(84),
   call: ([a]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in lengthOfByteString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -737,6 +841,14 @@ export const indexByteStringV1: Builtin = {
   cpuModel: Cost.Constant(81),
   memModel: Cost.Constant(82),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in indexByteString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in indexByteString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -784,6 +896,14 @@ export const equalsByteStringV1: Builtin = {
   cpuModel: Cost.ConstantOffDiag(59)(Cost.Linear(60, 61)(Cost.First)),
   memModel: Cost.Constant(62),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in equalsByteString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in equalsByteString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -824,6 +944,14 @@ export const lessThanByteStringV1: Builtin = {
   cpuModel: Cost.Linear(85, 86)(Cost.Min),
   memModel: Cost.Constant(87),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in lessThanByteString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in lessThanByteString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -864,6 +992,14 @@ export const lessThanEqualsByteStringV1: Builtin = {
   cpuModel: Cost.Linear(88, 89)(Cost.Min),
   memModel: Cost.Constant(90),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in lessThanEqualsByteString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in lessThanEqualsByteString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -904,6 +1040,10 @@ export const sha2_256V1: Builtin = {
   cpuModel: Cost.Linear(133, 134)(Cost.First),
   memModel: Cost.Constant(135),
   call: ([a]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in sha2_256()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -940,6 +1080,10 @@ export const sha3_256V1: Builtin = {
   cpuModel: Cost.Linear(136, 137)(Cost.First),
   memModel: Cost.Constant(138),
   call: ([a]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in sha3_256()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -976,6 +1120,10 @@ export const blake2b_256V1: Builtin = {
   cpuModel: Cost.Linear(14, 15)(Cost.First),
   memModel: Cost.Constant(16),
   call: ([a]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in blake2b_256()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -1000,6 +1148,18 @@ export const verifyEd25519SignatureV1: Builtin = {
   cpuModel: Cost.Linear(163, 164)(Cost.Third),
   memModel: Cost.Constant(165),
   call: ([pk, message, signature]: CekValue[]) => {
+    if (pk === undefined) {
+      throw new Error("pk is undefined in verifyEd25519Signature()")
+    }
+
+    if (message === undefined) {
+      throw new Error("message is undefined in verifyEd25519Signature()")
+    }
+
+    if (signature === undefined) {
+      throw new Error("signature is undefined in verifyEd25519Signature()")
+    }
+
     if (pk._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", pk._tag))
     }
@@ -1082,6 +1242,14 @@ export const appendStringV1: Builtin = {
   cpuModel: Cost.Linear(8, 9)(Cost.Sum),
   memModel: Cost.Linear(10, 11)(Cost.Sum),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in appendString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in appendString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -1116,6 +1284,14 @@ export const equalsStringV1: Builtin = {
   cpuModel: Cost.ConstantOffDiag(69)(Cost.Linear(70, 71)(Cost.First)),
   memModel: Cost.Constant(72),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in equalsString()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in equalsString()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -1156,6 +1332,10 @@ export const encodeUtf8V1: Builtin = {
   cpuModel: Cost.Linear(55, 56)(Cost.First),
   memModel: Cost.Linear(57, 58)(Cost.First),
   call: ([a]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in encodeUtf8()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -1186,6 +1366,10 @@ export const decodeUtf8V1: Builtin = {
   cpuModel: Cost.Linear(45, 46)(Cost.First),
   memModel: Cost.Linear(47, 48)(Cost.First),
   call: ([a]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in decodeUtf8()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -1209,6 +1393,18 @@ export const ifThenElseV1: Builtin = {
   cpuModel: Cost.Constant(79),
   memModel: Cost.Constant(80),
   call: ([cond, a, b]: CekValue[]) => {
+    if (cond === undefined) {
+      throw new Error("cond is undefined in ifThenElse()")
+    }
+
+    if (a === undefined) {
+      throw new Error("a is undefined in ifThenElse()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in ifThenElse()")
+    }
+
     if (cond._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", cond._tag))
     }
@@ -1236,6 +1432,14 @@ export const chooseUnitV1: Builtin = {
   cpuModel: Cost.Constant(37),
   memModel: Cost.Constant(38),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in chooseUnit()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in chooseUnit()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -1257,6 +1461,14 @@ export const traceV1: Builtin = {
   cpuModel: Cost.Constant(151),
   memModel: Cost.Constant(152),
   call: ([message, after]: CekValue[], ctx: MachineContext) => {
+    if (message === undefined) {
+      throw new Error("message is undefined in trace()")
+    }
+
+    if (after === undefined) {
+      throw new Error("after is undefined in trace()")
+    }
+
     if (message._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", message._tag))
     }
@@ -1292,6 +1504,10 @@ export const fstPairV1: Builtin = {
   cpuModel: Cost.Constant(73),
   memModel: Cost.Constant(74),
   call: ([a]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in fstPair()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -1324,6 +1540,10 @@ export const sndPairV1: Builtin = {
   cpuModel: Cost.Constant(143),
   memModel: Cost.Constant(144),
   call: ([a]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in sndPair()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -1362,6 +1582,18 @@ export const chooseListV1: Builtin = {
   cpuModel: Cost.Constant(35),
   memModel: Cost.Constant(36),
   call: ([lst, a, b]: CekValue[]) => {
+    if (lst === undefined) {
+      throw new Error("lst is undefined in chooseList()")
+    }
+
+    if (a === undefined) {
+      throw new Error("a is undefined in chooseList()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in chooseList()")
+    }
+
     if (lst._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", lst._tag))
     }
@@ -1389,6 +1621,14 @@ export const mkConsV1: Builtin = {
   cpuModel: Cost.Constant(101),
   memModel: Cost.Constant(102),
   call: ([item, list]: CekValue[]) => {
+    if (item === undefined) {
+      throw new Error("item is undefined in mkCons()")
+    }
+
+    if (list === undefined) {
+      throw new Error("list is undefined in mkCons()")
+    }
+
     if (list._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", list._tag))
     }
@@ -1441,30 +1681,32 @@ export const headListV1: Builtin = {
   nArgs: 1,
   cpuModel: Cost.Constant(75),
   memModel: Cost.Constant(76),
-  call: ([list]: CekValue[]) => {
-    if (list._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", list._tag))
+  call: ([l]: CekValue[]) => {
+    if (l === undefined) {
+      throw new Error("list is undefined in headList()")
+    }
+
+    if (l._tag != "Const") {
+      return Either.left(new WrongArgType(0, "Const", l._tag))
     }
 
     if (
-      !(
-        typeof list.value == "object" &&
-        list.value != null &&
-        "items" in list.value
-      )
+      !(typeof l.value == "object" && l.value != null && "items" in l.value)
     ) {
       return Either.left(
-        new WrongArgType(0, "list", Value.describeType(list.value))
+        new WrongArgType(0, "list", Value.describeType(l.value))
       )
     }
 
-    if (list.value.items.length == 0) {
+    if (l.value.items.length == 0) {
       return Either.left(new OutOfRange(0, 0))
     }
 
+    const head = l.value.items[0]
+
     return Either.right({
       _tag: "Const",
-      value: list.value.items[0]
+      value: head
     })
   }
 }
@@ -1481,32 +1723,32 @@ export const tailListV1: Builtin = {
   nArgs: 1,
   cpuModel: Cost.Constant(149),
   memModel: Cost.Constant(150),
-  call: ([list]: CekValue[]) => {
-    if (list._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", list._tag))
+  call: ([l]: CekValue[]) => {
+    if (l === undefined) {
+      throw new Error("list is undefined in tailList()")
+    }
+
+    if (l._tag != "Const") {
+      return Either.left(new WrongArgType(0, "Const", l._tag))
     }
 
     if (
-      !(
-        typeof list.value == "object" &&
-        list.value != null &&
-        "items" in list.value
-      )
+      !(typeof l.value == "object" && l.value != null && "items" in l.value)
     ) {
       return Either.left(
-        new WrongArgType(0, "list", Value.describeType(list.value))
+        new WrongArgType(0, "list", Value.describeType(l.value))
       )
     }
 
-    if (list.value.items.length == 0) {
+    if (l.value.items.length == 0) {
       return Either.left(new OutOfRange(0, 0))
     }
 
     return Either.right({
       _tag: "Const",
       value: {
-        itemType: list.value.itemType,
-        items: list.value.items.slice(1)
+        itemType: l.value.itemType,
+        items: l.value.items.slice(1)
       }
     })
   }
@@ -1530,26 +1772,26 @@ export const nullListV1: Builtin = {
   nArgs: 1,
   cpuModel: Cost.Constant(119),
   memModel: Cost.Constant(120),
-  call: ([list]: CekValue[]) => {
-    if (list._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", list._tag))
+  call: ([l]: CekValue[]) => {
+    if (l === undefined) {
+      throw new Error("list is undefined in nullList()")
+    }
+
+    if (l._tag != "Const") {
+      return Either.left(new WrongArgType(0, "Const", l._tag))
     }
 
     if (
-      !(
-        typeof list.value == "object" &&
-        list.value != null &&
-        "items" in list.value
-      )
+      !(typeof l.value == "object" && l.value != null && "items" in l.value)
     ) {
       return Either.left(
-        new WrongArgType(0, "list", Value.describeType(list.value))
+        new WrongArgType(0, "list", Value.describeType(l.value))
       )
     }
 
     return Either.right({
       _tag: "Const",
-      value: list.value.items.length == 0
+      value: l.value.items.length == 0
     })
   }
 }
@@ -1574,6 +1816,30 @@ export const chooseDataV1: Builtin = {
     intCase,
     bytesCase
   ]: CekValue[]) => {
+    if (cond === undefined) {
+      throw new Error("cond is undefined in chooseData()")
+    }
+
+    if (constrCase === undefined) {
+      throw new Error("constrCase is undefined in chooseData()")
+    }
+
+    if (mapCase === undefined) {
+      throw new Error("mapCase is undefined in chooseData()")
+    }
+
+    if (listCase === undefined) {
+      throw new Error("listCase is undefined in chooseData()")
+    }
+
+    if (intCase === undefined) {
+      throw new Error("intCase is undefined in chooseData()")
+    }
+
+    if (bytesCase === undefined) {
+      throw new Error("bytesCase is undefined in chooseData()")
+    }
+
     if (cond._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", cond._tag))
     }
@@ -1616,6 +1882,14 @@ export const constrDataV1: Builtin = {
   cpuModel: Cost.Constant(43),
   memModel: Cost.Constant(44),
   call: ([tag, fields]: CekValue[]) => {
+    if (tag === undefined) {
+      throw new Error("tag is undefined in constrData()")
+    }
+
+    if (fields === undefined) {
+      throw new Error("fields is undefined in constrData()")
+    }
+
     if (tag._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", tag._tag))
     }
@@ -1661,6 +1935,10 @@ export const mapDataV1: Builtin = {
   cpuModel: Cost.Constant(99),
   memModel: Cost.Constant(100),
   call: ([pairs]: CekValue[]) => {
+    if (pairs === undefined) {
+      throw new Error("pairs is undefined in mapData()")
+    }
+
     if (pairs._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", pairs._tag))
     }
@@ -1713,6 +1991,10 @@ export const listDataV1: Builtin = {
   cpuModel: Cost.Constant(97),
   memModel: Cost.Constant(98),
   call: ([list]: CekValue[]) => {
+    if (list === undefined) {
+      throw new Error("list is undefined in listData()")
+    }
+
     if (list._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", list._tag))
     }
@@ -1753,6 +2035,10 @@ export const iDataV1: Builtin = {
   cpuModel: Cost.Constant(77),
   memModel: Cost.Constant(78),
   call: ([x]: CekValue[]) => {
+    if (x === undefined) {
+      throw new Error("x is undefined in iData()")
+    }
+
     if (x._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", x._tag))
     }
@@ -1787,6 +2073,10 @@ export const bDataV1: Builtin = {
   cpuModel: Cost.Constant(12),
   memModel: Cost.Constant(13),
   call: ([b]: CekValue[]) => {
+    if (b === undefined) {
+      throw new Error("b is undefined in bData()")
+    }
+
     if (b._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", b._tag))
     }
@@ -1815,6 +2105,10 @@ export const unConstrDataV1: Builtin = {
   cpuModel: Cost.Constant(155),
   memModel: Cost.Constant(156),
   call: ([data]: CekValue[]) => {
+    if (data === undefined) {
+      throw new Error("data is undefined in unConstrData()")
+    }
+
     if (data._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", data._tag))
     }
@@ -1827,7 +2121,11 @@ export const unConstrDataV1: Builtin = {
 
     if (!("fields" in data.value.data)) {
       return Either.left(
-        new WrongArgType(0, "constr data", Value.describeType(data.value))
+        new WrongArgType(
+          0,
+          "constr data",
+          Object.keys(data.value.data).join("")
+        )
       )
     }
 
@@ -1863,6 +2161,10 @@ export const unMapDataV1: Builtin = {
   cpuModel: Cost.Constant(161),
   memModel: Cost.Constant(162),
   call: ([data]: CekValue[]) => {
+    if (data === undefined) {
+      throw new Error("data is undefined in unMapData()")
+    }
+
     if (data._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", data._tag))
     }
@@ -1911,6 +2213,10 @@ export const unListDataV1: Builtin = {
   cpuModel: Cost.Constant(159),
   memModel: Cost.Constant(160),
   call: ([data]: CekValue[]) => {
+    if (data === undefined) {
+      throw new Error("data is undefined in unListData()")
+    }
+
     if (data._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", data._tag))
     }
@@ -1956,6 +2262,10 @@ export const unIDataV1: Builtin = {
   cpuModel: Cost.Constant(157),
   memModel: Cost.Constant(158),
   call: ([data]: CekValue[]) => {
+    if (data === undefined) {
+      throw new Error("data is undefined in unIData()")
+    }
+
     if (data._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", data._tag))
     }
@@ -1998,6 +2308,10 @@ export const unBDataV1: Builtin = {
   cpuModel: Cost.Constant(153),
   memModel: Cost.Constant(154),
   call: ([data]: CekValue[]) => {
+    if (data === undefined) {
+      throw new Error("data is undefined in unBData()")
+    }
+
     if (data._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", data._tag))
     }
@@ -2036,10 +2350,18 @@ export const unBDataV3: Builtin = {
 export const equalsDataV1: Builtin = {
   name: "equalsData",
   forceCount: 0,
-  nArgs: 1,
+  nArgs: 2,
   cpuModel: Cost.Linear(63, 64)(Cost.Min),
   memModel: Cost.Constant(65),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in equalsData()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in equalsData()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -2080,6 +2402,14 @@ export const mkPairDataV1: Builtin = {
   cpuModel: Cost.Constant(107),
   memModel: Cost.Constant(108),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in mkPairData()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in mkPairData()")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }
@@ -2123,6 +2453,10 @@ export const mkNilDataV1: Builtin = {
   cpuModel: Cost.Constant(103),
   memModel: Cost.Constant(104),
   call: ([unit]: CekValue[]) => {
+    if (unit === undefined) {
+      throw new Error("unit is undefined in mkNilData()")
+    }
+
     if (unit._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", unit._tag))
     }
@@ -2156,6 +2490,10 @@ export const mkNilPairDataV1: Builtin = {
   cpuModel: Cost.Constant(105),
   memModel: Cost.Constant(106),
   call: ([unit]: CekValue[]) => {
+    if (unit === undefined) {
+      throw new Error("unit is undefined in mkNilPairData()")
+    }
+
     if (unit._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", unit._tag))
     }
@@ -2166,7 +2504,6 @@ export const mkNilPairDataV1: Builtin = {
       )
     }
 
-    console.log("RETURNING", Type.DataPair)
     return Either.right({
       _tag: "Const",
       value: {
@@ -2190,6 +2527,10 @@ export const serialiseDataV2: Builtin = {
   cpuModel: Cost.Linear(133, 134)(Cost.First),
   memModel: Cost.Linear(135, 136)(Cost.First),
   call: ([data]: CekValue[]) => {
+    if (data === undefined) {
+      throw new Error("data is undefined in serialiseData()")
+    }
+
     if (data._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", data._tag))
     }

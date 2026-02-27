@@ -683,7 +683,7 @@ export const EnumVariant = <
     encode: (encodedFields: Record<string, any>) =>
       ParseResult.succeed({
         constructor: Number(tag),
-        fields: Object.keys(fields).map(key => {
+        fields: Object.keys(fields).map((key) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return encodedFields[key]
         })
@@ -817,7 +817,7 @@ export const Enum = <
 
         return ParseResult.succeed({
           constructor: tag,
-          fields: Object.keys(variant).map(key => value[key])
+          fields: Object.keys(variant).map((key) => value[key])
         })
       }
     }

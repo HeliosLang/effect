@@ -1122,7 +1122,9 @@ function reduceApplyToFrame(
         if (callResult._tag == "Left") {
           return {
             kind: "error",
-            message: callResult.left.message ?? callResult.left._tag,
+            message:
+              (callResult.left.message ?? callResult.left._tag) +
+              ` (in ${b.name})`,
             stack: pushStackCallSites(frameStack, ...callSites)
           }
         } else {
@@ -1166,10 +1168,10 @@ function reduceLeftApplyToValueFrame(
 }
 
 /**
- * @param {CekFrame[]} frames
- * @param {CekValue} value
- * @param {CekContext} ctx
- * @returns {CekState}
+ * @param frames
+ * @param value
+ * @param ctx
+ * @returns
  */
 function reduceRightApplyFrame(
   frame: RightApplyFrame,
