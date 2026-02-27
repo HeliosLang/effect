@@ -679,10 +679,14 @@ export const EnumVariant = <
         )
       }
     },
-    encode: (fields) =>
+    // the encodedFields aren't necessarily in the correct order
+    encode: (encodedFields: Record<string, any>) =>
       ParseResult.succeed({
         constructor: Number(tag),
-        fields: Object.values(fields)
+        fields: Object.keys(fields).map(key => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return encodedFields[key]
+        })
       })
   })
 
@@ -801,6 +805,7 @@ export const Enum = <
           )
         }
       },
+      // the value fields aren't necessarily in the correct order
       encode: (value) => {
         const variantName = value._tag
 
@@ -808,11 +813,11 @@ export const Enum = <
           variantName as unknown as string
         )
 
+        const variant = variants[variantName]
+
         return ParseResult.succeed({
           constructor: tag,
-          fields: Object.entries(value)
-            .filter(([key]) => key != "_tag")
-            .map(([, field]) => field) as Data[]
+          fields: Object.keys(variant).map(key => value[key])
         })
       }
     }

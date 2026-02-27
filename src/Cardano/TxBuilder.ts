@@ -1434,7 +1434,7 @@ const profileRedeemer =
         yield* Console.error(`Script evaluation failed`)
 
         yield* Console.log(`Script cborHex: ${Bytes.toHex(script.root)}`)
-        for (let arg of args) {
+        for (const arg of args) {
           if (Uplc.Value.isData(arg)) {
             yield* Console.log(Bytes.toHex(Uplc.Data.encode(arg.data)))
           } else {

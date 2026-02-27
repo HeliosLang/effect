@@ -221,6 +221,55 @@ describe("Uplc.DataSchema.EnumVariant", () => {
       })
     ).toThrow()
   })
+
+  it("order is maintained when encoding", () => {
+    const result = Schema.encodeSync(Data.EnumVariant(0, {
+      a: Data.Array(Data.Int),
+      b: Data.Array(Data.Int),
+      c: Data.Array(Data.Int),
+      d: Data.Array(Data.Int),
+      e: Data.Array(Data.Int),
+      f: Data.Array(Data.Int),
+      g: Data.Array(Data.Int),
+      h: Data.Array(Data.Int),
+      i: Data.Array(Data.Int),
+      j: Data.Array(Data.Int),
+      k: Data.Array(Data.Int),
+      l: Data.Array(Data.Int)
+    }))({
+      f: [0, 1, 2, 3, 4],
+      h: [0, 1, 2, 3, 4, 5, 6],
+      j: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+      l: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      c: [0, 1],
+      g: [0, 1, 2, 3, 4, 5],
+      a: [],
+      b: [0],
+      d: [0, 1, 2],
+      e: [0, 1, 2, 3],
+      i: [0, 1, 2, 3, 4, 5, 6, 7],
+      k: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    })
+
+    if (!("fields" in result)) {
+      throw new Error("unexpected data kind")
+    }
+
+    for (let i = 1; i < result.fields.length; i++) {
+      const prev = result.fields[i-1]
+      const item = result.fields[i]
+
+      if (!("list" in prev)) {
+        throw new Error("prev not a list")
+      }
+
+      if (!("list" in item)) {
+        throw new Error("item not a list")
+      }
+
+      expect(prev.list.length).toBeLessThan(item.list.length)
+    }
+  })
 })
 
 describe("Uplc.DataSchema.Enum", () => {

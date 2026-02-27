@@ -77,6 +77,14 @@ export const addIntegerV1: Builtin = {
   cpuModel: Cost.Linear(0, 1)(Cost.Max),
   memModel: Cost.Linear(2, 3)(Cost.Max),
   call: ([a, b]: CekValue[]) => {
+    if (a === undefined) {
+      throw new Error("a is undefined in addInteger()")
+    }
+
+    if (b === undefined) {
+      throw new Error("b is undefined in addInteger")
+    }
+
     if (a._tag != "Const") {
       return Either.left(new WrongArgType(0, "Const", a._tag))
     }

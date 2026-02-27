@@ -117,7 +117,10 @@ const TxInfoV2 = Data.EnumVariant(0, {
 
 type TxInfoV2 = Schema.Schema.Type<typeof TxInfoV2>
 
-const TxInfoV3 = Data.EnumVariant(0, {
+/**
+ * Only use for testing!
+ */
+export const TxInfoV3 = Data.EnumVariant(0, {
   inputs: Data.Array(UTxOFromUplcDataV3),
   refInputs: Data.Array(UTxOFromUplcDataV3),
   outputs: Data.Array(TxOutputFromUplcData),
@@ -136,7 +139,10 @@ const TxInfoV3 = Data.EnumVariant(0, {
   treasuryDonation: Data.Option(Data.Data) // TODO
 })
 
-class CurrentTx extends Context.Tag("Cardano.Uplc.ScriptContext.CurrentTx")<
+/**
+ * Exported for testing
+ */
+export class CurrentTx extends Context.Tag("Cardano.Uplc.ScriptContext.CurrentTx")<
   CurrentTx,
   Tx
 >() {}
@@ -202,8 +208,10 @@ const PurposeV2 = Schema.transformOrFail(
 
 /**
  * TODO: add voting and proposing redeemers
+ * 
+ * Only exported for testing
  */
-const PurposeV3 = Schema.transformOrFail(
+export const PurposeV3 = Schema.transformOrFail(
   Data.Enum({
     Minting: {
       policy: MintingPolicyFromUplcData
