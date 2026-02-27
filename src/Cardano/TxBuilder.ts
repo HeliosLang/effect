@@ -379,7 +379,7 @@ export const mint =
             return yield* Effect.fail(new MissingScript(hash))
           }
 
-          addMintingRedeemer(b, policy, redeemer)
+          b = yield* addMintingRedeemer(b, policy, redeemer)
         } else {
           if (!hasNativeScript(b, hash)) {
             return yield* Effect.fail(new MissingRedeemer())
