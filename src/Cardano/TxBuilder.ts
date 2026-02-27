@@ -1248,8 +1248,10 @@ const buildNonChangeOutputs = Effect.gen(function* () {
     const lovelace = yield* TxOutput.minLovelace(output)
 
     if (lovelace > (output.assets[""] ?? 0n)) {
-      yield* Console.log(`Updated output ${i} to contain ${lovelace} lovelace (${"" in output.assets ? `contained only ${output.assets[""]} before` : `didn't contain any lovelace before`})`)
-      
+      yield* Console.log(
+        `Updated output ${i} to contain ${lovelace} lovelace (${"" in output.assets ? `contained only ${output.assets[""]} before` : `didn't contain any lovelace before`})`
+      )
+
       outputs[i] = {
         ...output,
         assets: {
@@ -1492,9 +1494,40 @@ const selectCoinsForBalancing = CoinSelection.smallestFirst({
 const balanceTx = (tx: Tx.Tx) =>
   Effect.gen(function* () {
     yield* Console.log("Balancing tx...")
+
+    const balancingWallet = yield* BalancingWallet
+    const changeAddress = yield* balancingWallet.changeAddress
+    const spareUTxOs = yield* balancingWallet.utxos
+
+    /**
+     * Lookup or create the change output (TODO: support multiple change outputs?)
+     */
+    let changeOutput: TxOutput.TxOutput | undefined = tx.body.outputs.find(
+      (output) =>
+        output.address == changeAddress &&
+        output.datum === undefined &&
+        output.refScript === undefined
+    )
+
+    const nonChangeOutputs = tx.body.outputs.filter(
+      (output) => output != changeOutput
+    )
+
+    /**
+     * Create the change output if no change output was found
+     */
+    if (changeOutput === undefined) {
+      changeOutput = {
+        address: changeAddress,
+        assets: {}
+      }
+    }
+
     const inputAssets = UTxO.sumAssets(...tx.body.inputs)
+
+    // don't count the changeOutput!
     const outputAssets = Assets.sum(
-      ...tx.body.outputs.map((output) => output.assets)
+      ...nonChangeOutputs.map((output) => output.assets)
     )
     const feeAssets = { "": tx.body.fee } as Assets.Assets
     const mintedAssets = tx.body.minted
@@ -1506,17 +1539,6 @@ const balanceTx = (tx: Tx.Tx) =>
       Assets.negate(outputAssets),
       Assets.negate(feeAssets)
     )
-
-    /**
-     * Return if already balanced
-     */
-    if (Assets.isEmpty(net)) {
-      return tx
-    }
-
-    const balancingWallet = yield* BalancingWallet
-    const changeAddress = yield* balancingWallet.changeAddress
-    const spareUTxOs = yield* balancingWallet.utxos
 
     const selectAndAddInputs = (amount: Assets.Assets) =>
       Effect.gen(function* () {
@@ -1548,60 +1570,43 @@ const balanceTx = (tx: Tx.Tx) =>
     }
 
     /**
-     * Handle the unlikely event that the tx is already balanced with the extraInputs
+     * `net` must be positive at this point
      */
-    if (Assets.isEmpty(net)) {
-      return tx
+    if (!Assets.isEmpty(Assets.filterNegative(net))) {
+      throw new Error("net not positive")
     }
 
     if (Address.isValidator(changeAddress)) {
       throw new Error("can't send change to validator")
     }
 
-    /**
-     * Lookup or create the change output (TODO: support multiple change outputs?)
-     */
-    let changeOutput: TxOutput.TxOutput | undefined = tx.body.outputs.find(
-      (output) =>
-        output.address == changeAddress &&
-        output.datum === undefined &&
-        output.refScript === undefined
-    )
-    const nonChangeOutputs = tx.body.outputs.filter(
-      (output) => output != changeOutput
-    )
-
-    /**
-     * Create the change output if no change output was found
-     */
-    if (changeOutput === undefined) {
-      changeOutput = {
-        address: changeAddress,
-        assets: Assets.filterPositive(net)
-      }
-
-      net = {}
+    changeOutput = {
+      ...changeOutput,
+      assets: net
     }
+    net = {}
 
     const minLovelace = yield* TxOutput.minLovelace(changeOutput)
     let diff = minLovelace - (changeOutput.assets[""] ?? 0n)
 
     while (diff > 0n) {
-      yield* selectAndAddInputs({ "": diff })
+      yield* selectAndAddInputs(
+        Assets.add(
+          { "": diff } as Assets.Assets,
+          Assets.negate(Assets.filterNegative(changeOutput.assets))
+        )
+      )
 
       changeOutput = {
         ...changeOutput,
-        assets: Assets.add(changeOutput.assets, Assets.filterPositive(net))
+        assets: Assets.add(changeOutput.assets, net)
       }
 
       net = {}
 
-      yield* Console.log("Calculating diff...")
       diff =
         (yield* TxOutput.minLovelace(changeOutput)) -
         (changeOutput.assets[""] ?? 0n)
-
-      yield* Console.log("Done calculating diff")
     }
 
     // assign result before returning so that return type is Tx
