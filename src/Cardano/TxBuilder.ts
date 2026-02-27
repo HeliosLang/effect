@@ -1,4 +1,5 @@
 import { Console, Context, Data, Effect } from "effect"
+import { Bytes } from "../Codecs/index.js"
 import * as CoinSelection from "./CoinSelection.js"
 import {
   Address,
@@ -1428,6 +1429,21 @@ const profileRedeemer =
       yield* Console.log(`Done evaluating script`)
 
       if (profile.value._tag == "Left") {
+        yield* Console.log(profile.value.left)
+
+        yield* Console.error(`Script evaluation failed`)
+
+        yield* Console.log(`Script cborHex: ${Bytes.toHex(script.root)}`)
+        for (let arg of args) {
+          if (Uplc.Value.isData(arg)) {
+            yield* Console.log(Bytes.toHex(Uplc.Data.encode(arg.data)))
+          } else {
+            yield* Console.log(arg)
+          }
+        }
+
+        yield* Console.log(``)
+
         // TODO: return a RuntimeError with nice stack trace
         return yield* Effect.fail(new Error(profile.value.left.error))
       }
