@@ -329,14 +329,14 @@ export const Int = Schema.transformOrFail(Data, Schema.Int, {
     }
   },
   encode: (value) => {
+    if (!Number.isFinite(value)) {
+      return ParseResult.fail(new ParseResult.Unexpected(value, "not finite"))
+    }
+
     if (value % 1.0 != 0) {
       return ParseResult.fail(
         new ParseResult.Unexpected(value, "not an integer")
       )
-    }
-
-    if (Number.isNaN(value)) {
-      return ParseResult.fail(new ParseResult.Unexpected(value, "NaN"))
     }
 
     return ParseResult.succeed({ int: BigInt(Math.round(value)) })
@@ -362,7 +362,7 @@ export const Real = (decimals: number = 6) => {
       }
     },
     encode: (value) => {
-      if (Number.isNaN(value)) {
+      if (!Number.isFinite(value)) {
         return ParseResult.fail(new ParseResult.Unexpected(value, "NaN"))
       }
 

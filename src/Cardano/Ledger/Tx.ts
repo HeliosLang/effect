@@ -724,6 +724,12 @@ export const minFee = (tx: Tx) =>
       )
     }
 
+    const s = size(true)(tx)
+
+    if (!Number.isFinite(s)) {
+      throw new Error(`tx size not finite in Cardano.Ledger.Tx.minFee()`)
+    }
+    
     const sizeFee =
       BigInt(p.txFeeFixed) + BigInt(size(true)(tx)) * BigInt(p.txFeePerByte)
 

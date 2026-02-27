@@ -252,8 +252,16 @@ export const minLovelace = (output: TxOutput) =>
     Effect.map((p) => {
       const lovelacePerByte = p.utxoDepositPerByte
 
+      if (p.utxoDepositPerByte === undefined) {
+        throw new Error(`Network.Params.params.utxoDepositPerByte undefined in Cardano.Ledger.TxOutput.minLovelace()`)
+      }
+
       // 160 accounts for some database overhead?
       const correctedSize = encode(output).length + 160
+
+      if (!Number.isFinite) {
+        throw new Error("correctedSize isn't finite in Cardano.Ledger.TxOutput.minLovelace()")
+      }
 
       return BigInt(correctedSize) * BigInt(lovelacePerByte)
     })

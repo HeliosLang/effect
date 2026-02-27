@@ -1085,6 +1085,8 @@ export const build =
        */
       const { firstValidSlot, lastValidSlot } = yield* buildValidityTimeRange
 
+      yield* Console.log(`Built validatity slots: ${firstValidSlot}:${lastValidSlot}`)
+
       /**
        * Make sure the outputs contain enough lovelace
        */
@@ -1142,10 +1144,14 @@ export const build =
         metadata
       }
 
+      yield* Console.log(`Initialized tx`)
+
       /**
        * The redeemer indices depend on some tx body fields, so are initialized after the init tx is created
        */
       tx = yield* buildRedeemersWithoutCost(tx)
+
+      yield* Console.log(`Built redeemers without cost`)
 
       /**
        * Now in a loop the transaction is updated:
@@ -1158,15 +1164,26 @@ export const build =
        * The loop continues as long as the tx.fee field is smaller than the min required field.
        * We know that this loop will run at least once because initially tx.fee=0n, ensuring the tx is balanced
        */
+      yield* Console.log(`Start loop`)
       while (tx.body.fee < (yield* Tx.minFee(tx))) {
         tx = yield* updateFee(tx)
 
+        yield* Console.log(`Updated fee`)
+
         tx = yield* balanceTx(tx)
+
+        yield* Console.log(`Balanced tx`)
 
         tx = yield* buildRedeemersWithCost(tx)
 
+        yield* Console.log(`Built redeemers with cost`)
+
         tx = yield* updateScriptDataHash(tx)
+
+        yield* Console.log(`Updated script hash`)
       }
+
+      yield* Console.log(`End loop`)
 
       /**
        * Sign using balancing wallet
@@ -1338,6 +1355,8 @@ const buildRedeemersWithCost = (tx: Tx.Tx) =>
      */
     tx = yield* buildRedeemersWithoutCost(tx)
 
+    yield* Console.log("rebuilt redeemers without cost")
+
     /**
      * Now calculate the cost of each redeemer
      */
@@ -1388,8 +1407,10 @@ const profileRedeemer =
   (b: TxBuilder, tx: Tx.Tx) =>
   (vh: ValidatorHash.ValidatorHash, redeemerIndex: number) =>
     Effect.gen(function* () {
-      const script = getUplcScript(b, vh)
+      yield* Console.log(`Profiling redeemer of ${vh}`)
 
+      const script = getUplcScript(b, vh)
+      
       const args: Uplc.Value.Value[] = yield* ScriptContext.makeArgs(
         script.version,
         tx,
@@ -1398,7 +1419,10 @@ const profileRedeemer =
 
       const costModel = yield* Network.Params.costModel(script.version)
 
+      yield* Console.log(`Evaluating script`)
       const profile = yield* Uplc.Script.eval(script, args, costModel)
+
+      yield* Console.log(`Done evaluating script`)
 
       if (profile.value._tag == "Left") {
         // TODO: return a RuntimeError with nice stack trace
@@ -1446,6 +1470,7 @@ const selectCoinsForBalancing = CoinSelection.smallestFirst({
 
 const balanceTx = (tx: Tx.Tx) =>
   Effect.gen(function* () {
+    yield* Console.log("Balancing tx...")
     const inputAssets = UTxO.sumAssets(...tx.body.inputs)
     const outputAssets = Assets.sum(
       ...tx.body.outputs.map((output) => output.assets)
@@ -1453,6 +1478,7 @@ const balanceTx = (tx: Tx.Tx) =>
     const feeAssets = { "": tx.body.fee } as Assets.Assets
     const mintedAssets = tx.body.minted
 
+    yield* Console.log("Summing assets...")
     let net = Assets.sum(
       inputAssets,
       mintedAssets,
@@ -1473,6 +1499,7 @@ const balanceTx = (tx: Tx.Tx) =>
 
     const selectAndAddInputs = (amount: Assets.Assets) =>
       Effect.gen(function* () {
+        yield* Console.log("Selecting coins...")
         const extraInputs = yield* selectCoinsForBalancing(
           UTxO.difference(
             spareUTxOs ?? [],
@@ -1548,9 +1575,12 @@ const balanceTx = (tx: Tx.Tx) =>
 
       net = {}
 
+      yield* Console.log("Calculating diff...")
       diff =
         (yield* TxOutput.minLovelace(changeOutput)) -
         (changeOutput.assets[""] ?? 0n)
+
+      yield* Console.log("Done calculating diff")
     }
 
     // assign result before returning so that return type is Tx
