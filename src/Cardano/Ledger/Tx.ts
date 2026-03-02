@@ -898,6 +898,8 @@ export const validate =
       yield* validateConservation(tx)
 
       yield* validateCollateral(strict)(tx)
+
+      yield* validateOutputs(strict)(tx)
     })
 
 /**
@@ -1034,5 +1036,22 @@ const validateCollateral = (strict: boolean) => (tx: Tx) =>
 
     if (sum > mc * 5n) {
       yield* Console.warn(`way too much collateral (${sum} >> ${mc})`)
+    }
+  })
+
+const validateOutputs = (strict: boolean) => (tx: Tx) =>
+  Effect.gen(function* () {
+    for (const output of tx.body.outputs) {
+      const minLovelace = yield* TxOutput.minLovelace(output)
+
+      if (minLovelace > (output.assets[""] ?? 0n)) {
+        return yield* new InvalidTx(
+          `not enough lovelace in output (expected at least ${minLovelace.toString()}, got ${output.assets[""] ?? 0n})`
+        )
+      }
+
+      if (strict && !Assets.isSorted(output.assets)) {
+        return yield* new InvalidTx(`output assets not sorted`)
+      }
     }
   })

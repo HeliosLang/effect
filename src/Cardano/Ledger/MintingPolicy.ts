@@ -58,3 +58,6 @@ export function hash(policy: MintingPolicy): ValidatorHash.ValidatorHash {
 
   return policy as string as ValidatorHash.ValidatorHash
 }
+
+export const compare = (a: MintingPolicy, b: MintingPolicy) =>
+  Bytes.compare(a, b)

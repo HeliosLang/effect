@@ -377,3 +377,32 @@ export function pretty(assets: Assets): string {
 
   return s
 }
+
+export const isSorted = (assets: Assets): boolean => {
+  const keys = Object.keys(assets)
+
+  for (let i = 1; i < keys.length; i++) {
+    const key0 = keys[i - 1] as AssetClass.AssetClass
+    const key1 = keys[i] as AssetClass.AssetClass
+
+    const policy0 = AssetClass.policy(key0)
+    const policy1 = AssetClass.policy(key1)
+
+    if (MintingPolicy.compare(policy0, policy1) > 0) {
+      // policies not sorted
+      return false
+    }
+
+    if (policy0 == policy1) {
+      const tokenName0 = AssetClass.tokenName(key0)
+      const tokenName1 = AssetClass.tokenName(key1)
+
+      if (Bytes.compare(tokenName0, tokenName1) >= 0) {
+        // tokens not sorted
+        return false
+      }
+    }
+  }
+
+  return true
+}
