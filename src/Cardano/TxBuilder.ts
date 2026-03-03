@@ -1250,21 +1250,26 @@ const buildNonChangeOutputs = Effect.gen(function* () {
   const outputs: TxOutput.TxOutput[] = b.outputs.slice()
 
   for (let i = 0; i < outputs.length; i++) {
-    const output = outputs[i]
-    const lovelace = yield* TxOutput.minLovelace(output)
+    let output = outputs[i]
+    let lovelace = yield* TxOutput.minLovelace(output)
 
-    if (lovelace > (output.assets[""] ?? 0n)) {
+    // iterate, because including lovelace value requires more lovelace itself
+    while (lovelace > (output.assets[""] ?? 0n)) {
       yield* Console.log(
         `Updated output ${i} to contain ${lovelace} lovelace (${"" in output.assets ? `contained only ${output.assets[""]} before` : `didn't contain any lovelace before`})`
       )
 
-      outputs[i] = {
+      output = {
         ...output,
         assets: {
           ...output.assets,
           "": lovelace
         }
       }
+
+      outputs[i] = output
+
+      lovelace = yield* TxOutput.minLovelace(output)
     }
   }
 
