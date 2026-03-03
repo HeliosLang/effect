@@ -1148,6 +1148,9 @@ export const build =
       }
 
       yield* Console.log("validating outputs...")
+      for (const output of outputs) {
+        yield* Console.log(`Output lovelace: ${output.assets[""]?.toString()}`)
+      }
       yield* Tx.validateOutputs(true)(tx)
 
       yield* Console.log(`Initialized tx`)
