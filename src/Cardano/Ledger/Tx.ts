@@ -1039,7 +1039,7 @@ const validateCollateral = (strict: boolean) => (tx: Tx) =>
     }
   })
 
-const validateOutputs = (strict: boolean) => (tx: Tx) =>
+export const validateOutputs = (strict: boolean) => (tx: Tx) =>
   Effect.gen(function* () {
     for (const output of tx.body.outputs) {
       const minLovelace = yield* TxOutput.minLovelace(output)

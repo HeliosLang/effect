@@ -1147,6 +1147,9 @@ export const build =
         metadata
       }
 
+      yield* Console.log("validating outputs...")
+      yield* Tx.validateOutputs(true)(tx)
+
       yield* Console.log(`Initialized tx`)
 
       /**
