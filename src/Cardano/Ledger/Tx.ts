@@ -900,6 +900,11 @@ export const validate =
       yield* validateCollateral(strict)(tx)
 
       yield* validateOutputs(strict)(tx)
+
+      return {
+        ...tx,
+        isValid: true
+      }
     })
 
 /**
