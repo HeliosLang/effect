@@ -406,3 +406,32 @@ export const isSorted = (assets: Assets): boolean => {
 
   return true
 }
+
+/**
+ * Makes sure minting policies are in correct order, and for each minting policy make sure the tokens are in the correct order
+ * `shortestFirst` defaults to true (canonical sort)
+ */
+export const sort =
+  ({ shortestFirst = true }: { shortestFirst?: boolean } = {}) =>
+  (assets: Assets): Assets => {
+    const keys = Object.keys(assets)
+
+    keys.sort((a, b) => {
+      const c = MintingPolicy.compare(
+        AssetClass.policy(a),
+        AssetClass.policy(b)
+      )
+
+      if (c != 0) {
+        return c
+      }
+
+      return Bytes.compare(
+        AssetClass.tokenName(a),
+        AssetClass.tokenName(b),
+        shortestFirst
+      )
+    })
+
+    return Object.fromEntries(keys.map((key) => [key, assets[key]]))
+  }

@@ -1273,6 +1273,14 @@ const buildNonChangeOutputs = Effect.gen(function* () {
     }
   }
 
+  // sort all assets
+  for (let i = 0; i < outputs.length; i++) {
+    outputs[i] = {
+      ...outputs[i],
+      assets: Assets.sort()(outputs[i].assets)
+    }
+  }
+
   return outputs
 })
 
@@ -1593,7 +1601,7 @@ const balanceTx = (tx: Tx.Tx) =>
 
     changeOutput = {
       ...changeOutput,
-      assets: net
+      assets: Assets.sort()(net)
     }
     net = {}
 
@@ -1610,7 +1618,7 @@ const balanceTx = (tx: Tx.Tx) =>
 
       changeOutput = {
         ...changeOutput,
-        assets: Assets.add(changeOutput.assets, net)
+        assets: Assets.sort()(Assets.add(changeOutput.assets, net))
       }
 
       net = {}
