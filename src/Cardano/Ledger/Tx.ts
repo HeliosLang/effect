@@ -172,7 +172,7 @@ export const decode =
         Cbor.decodeNullOption(decodeMetadata)
       ])(bytes)
 
-      return {
+      const tx: Tx = {
         body: {
           ...body,
           inputs: yield* UTxO.resolveAll(options)(body.inputs),
@@ -182,7 +182,9 @@ export const decode =
         witnesses,
         isValid,
         metadata
-      } satisfies Tx
+      }
+
+      return tx
     })
 
 export const encode =
@@ -877,6 +879,7 @@ export class InvalidTx extends TaggedError("Cardano.Ledger.Tx.InvalidTx")<{
     super({ message: `Invalid tx (${reason})` })
   }
 }
+
 export type ValidationOptions = {
   strict?: boolean | undefined
   verbose?: boolean | undefined
@@ -901,10 +904,12 @@ export const validate =
 
       yield* validateOutputs(strict)(tx)
 
-      return {
+      tx = {
         ...tx,
         isValid: true
       }
+
+      return tx
     })
 
 /**
