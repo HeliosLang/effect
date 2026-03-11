@@ -6,6 +6,7 @@ import * as Crypto from "../../Crypto/index.js"
 import type { ValidatorHash } from "../Ledger/ValidatorHash.js"
 import * as Builtins from "./Builtins.js"
 import * as Cek from "./Cek.js"
+import * as Cost from "./Cost.js"
 import * as Term from "./Term.js"
 import * as Value from "./Value.js"
 
@@ -143,7 +144,7 @@ export function encode(script: Script): number[] {
 const eval$ = (
   script: Script,
   args: readonly Value.Value[] | undefined,
-  costParams: readonly number[],
+  costParams: readonly number[] | undefined = undefined,
   logger: Cek.Logger | undefined = undefined
 ) =>
   Effect.gen(function* () {
@@ -162,11 +163,23 @@ const eval$ = (
     const ctx: Cek.EvalContext = (() => {
       switch (script.version) {
         case 1:
-          return { builtins: Builtins.V1, costParams, logger }
+          return {
+            builtins: Builtins.V1,
+            costParams: costParams ?? Cost.PARAMS_V1_CONWAY,
+            logger
+          }
         case 2:
-          return { builtins: Builtins.V2, costParams, logger }
+          return {
+            builtins: Builtins.V2,
+            costParams: costParams ?? Cost.PARAMS_V2_CONWAY,
+            logger
+          }
         case 3:
-          return { builtins: Builtins.V3, costParams, logger }
+          return {
+            builtins: Builtins.V3,
+            costParams: costParams ?? Cost.PARAMS_V3_CONWAY,
+            logger
+          }
       }
     })()
 
