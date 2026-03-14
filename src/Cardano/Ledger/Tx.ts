@@ -172,14 +172,20 @@ export const decode =
         Cbor.decodeNullOption(decodeMetadata)
       ])(bytes)
 
+      const resolvedRefInputs = yield* UTxO.resolveAll(options)(body.refInputs)
+
       const tx: Tx = {
         body: {
           ...body,
           inputs: yield* UTxO.resolveAll(options)(body.inputs),
           collateral: yield* UTxO.resolveAll(options)(body.collateral),
-          refInputs: yield* UTxO.resolveAll(options)(body.refInputs)
+          refInputs: resolvedRefInputs
         } satisfies Body,
-        witnesses,
+        witnesses: {
+          ...witnesses,
+          v2RefScripts: [...witnesses.v2RefScripts, ...resolvedRefInputs.map(ri => ri.output.refScript).filter(rs => rs?.version == 2) as Script.Script<2>[]],
+          v3RefScripts: [...witnesses.v3RefScripts, ...resolvedRefInputs.map(ri => ri.output.refScript).filter(rs => rs?.version == 3) as Script.Script<3>[]]
+        },
         isValid,
         metadata
       }
@@ -812,7 +818,7 @@ export const inputDatum = (inputIndex: number) => (tx: Tx) => {
   }
 }
 
-function isSmart(tx: Tx): boolean {
+export function isSmart(tx: Tx): boolean {
   return (
     tx.witnesses.v1Scripts.length > 0 ||
     tx.witnesses.v2Scripts.length > 0 ||
