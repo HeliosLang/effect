@@ -1,6 +1,7 @@
 export * as CoinSelection from "./CoinSelection.js"
 export * as Ledger from "./Ledger/index.js"
 export * as Network from "./Network/index.js"
+export * as ScriptContext from "./ScriptContext.js"
 export * as TxBuilder from "./TxBuilder.js"
 export * as Uplc from "./Uplc/index.js"
 export * as Wallet from "./Wallet.js"

@@ -61,6 +61,10 @@ function makeBytes(isMainnet: boolean, cred: Credential.Credential): number[] {
 
 const decodeInternal = (bytes: Bytes.BytesLike) =>
   Either.gen(function* () {
+    if (typeof bytes == "string" && bytes.startsWith("stake")) {
+      bytes = (yield* Bech32.decode(bytes)).bytes
+    }
+
     const innerBytes = Cbor.isBytes(bytes)
       ? yield* Cbor.decodeBytes(bytes)
       : Bytes.toArray(bytes)
@@ -110,6 +114,11 @@ export const decode = (
         return new Cbor.DecodeError(
           Bytes.makeStream(bytes),
           `invalid hash (${e.message}`
+        )
+      } else if (e._tag == "DecodeException") {
+        return new Cbor.DecodeError(
+          Bytes.makeStream(bytes),
+          `bech32 decoding failed (${e.message})`
         )
       } else {
         return e

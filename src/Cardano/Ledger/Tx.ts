@@ -7,8 +7,10 @@ import * as Params from "../Network/Params.js"
 import { Cek, Data, Script } from "../Uplc/index.js"
 import * as Address from "./Address.js"
 import * as Assets from "./Assets.js"
+import * as Credential from "./Credential.js"
 import * as DCert from "./DCert.js"
 import * as NativeScript from "./NativeScript.js"
+import * as PubKey from "./PubKey.js"
 import * as PubKeyHash from "./PubKeyHash.js"
 import * as Redeemer from "./Redeemer.js"
 import * as RewardAddress from "./RewardAddress.js"
@@ -183,8 +185,18 @@ export const decode =
         } satisfies Body,
         witnesses: {
           ...witnesses,
-          v2RefScripts: [...witnesses.v2RefScripts, ...resolvedRefInputs.map(ri => ri.output.refScript).filter(rs => rs?.version == 2) as Script.Script<2>[]],
-          v3RefScripts: [...witnesses.v3RefScripts, ...resolvedRefInputs.map(ri => ri.output.refScript).filter(rs => rs?.version == 3) as Script.Script<3>[]]
+          v2RefScripts: [
+            ...witnesses.v2RefScripts,
+            ...(resolvedRefInputs
+              .map((ri) => ri.output.refScript)
+              .filter((rs) => rs?.version == 2) as Script.Script<2>[])
+          ],
+          v3RefScripts: [
+            ...witnesses.v3RefScripts,
+            ...(resolvedRefInputs
+              .map((ri) => ri.output.refScript)
+              .filter((rs) => rs?.version == 3) as Script.Script<3>[])
+          ]
         },
         isValid,
         metadata
@@ -621,21 +633,61 @@ export function hash(tx: Tx): TxHash.TxHash {
   ) as TxHash.TxHash
 }
 
-const countUniqueSigners = (body: Body): number => {
+const addPubKeyCredentialSigner = (
+  set: Set<PubKeyHash.PubKeyHash>,
+  credential: Credential.Credential
+) => {
+  if (credential._tag == "PubKey") {
+    set.add(credential.hash)
+  }
+}
+
+const collectRequiredSignerHashes = (
+  body: Body
+): Set<PubKeyHash.PubKeyHash> => {
   const set = new Set<PubKeyHash.PubKeyHash>()
 
   body.inputs.concat(body.collateral).forEach((utxo) => {
     const address = utxo.output.address
     const credential = Address.spendingCredential(address)
-    if (credential._tag == "PubKey") {
-      set.add(credential.hash)
+    addPubKeyCredentialSigner(set, credential)
+  })
+
+  body.withdrawals.forEach(([rewardAddress]) => {
+    addPubKeyCredentialSigner(set, RewardAddress.credential(rewardAddress))
+  })
+
+  body.dcerts.forEach((dcert) => {
+    switch (dcert._tag) {
+      case "Registration":
+      case "Deregistration":
+      case "Delegation":
+        addPubKeyCredentialSigner(set, dcert.credential)
+        break
+      case "RegisterPool":
+        set.add(dcert.id)
+        dcert.owners.forEach((owner) => set.add(owner))
+        break
+      case "RetirePool":
+        set.add(dcert.poolId)
+        break
     }
   })
 
   body.signers.forEach((s) => set.add(s))
 
-  return set.size
+  return set
 }
+
+const countUniqueSigners = (body: Body): number =>
+  collectRequiredSignerHashes(body).size
+
+const collectPresentSignerHashes = (
+  witnesses: Witnesses
+): Set<PubKeyHash.PubKeyHash> =>
+  new Set(
+    witnesses.signatures.map((signature) => PubKey.hash(signature.pubKey))
+  )
 
 const countNonDummySignatures = (witnesses: Witnesses): number => {
   return witnesses.signatures.reduce(
@@ -646,6 +698,20 @@ const countNonDummySignatures = (witnesses: Witnesses): number => {
 
 const countMissingSignatures = (tx: Tx): number =>
   countUniqueSigners(tx.body) - countNonDummySignatures(tx.witnesses)
+
+export const validateSignatures = (tx: Tx) =>
+  Effect.gen(function* () {
+    const present = collectPresentSignerHashes(tx.witnesses)
+    const missing = Array.from(collectRequiredSignerHashes(tx.body)).filter(
+      (pkh) => !present.has(pkh)
+    )
+
+    if (missing.length > 0) {
+      return yield* new InvalidTx(
+        `missing VK signatures for PubKeyHash(es): ${missing.join(", ")}`
+      )
+    }
+  })
 
 /**
  * Number of bytes of CBOR encoding of Tx
@@ -888,6 +954,7 @@ export class InvalidTx extends TaggedError("Cardano.Ledger.Tx.InvalidTx")<{
 
 export type ValidationOptions = {
   strict?: boolean | undefined
+  signatures?: boolean | undefined
   verbose?: boolean | undefined
   logger?: Cek.Logger | undefined
 }
@@ -895,6 +962,7 @@ export type ValidationOptions = {
 export const validate =
   ({
     strict = false,
+    signatures = false,
     verbose: _verbose = false,
     logger: _logger = undefined
   }: ValidationOptions = {}) =>
@@ -909,6 +977,10 @@ export const validate =
       yield* validateCollateral(strict)(tx)
 
       yield* validateOutputs(strict)(tx)
+
+      if (signatures) {
+        yield* validateSignatures(tx)
+      }
 
       tx = {
         ...tx,
