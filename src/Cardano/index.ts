@@ -1,4 +1,5 @@
 export * as CoinSelection from "./CoinSelection.js"
+export * as Cose from "./Cose/index.js"
 export * as Ledger from "./Ledger/index.js"
 export * as Network from "./Network/index.js"
 export * as ScriptContext from "./ScriptContext.js"
