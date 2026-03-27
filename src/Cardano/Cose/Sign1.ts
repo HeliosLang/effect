@@ -1,4 +1,4 @@
-import { Data, Either } from "effect"
+import { Data, Effect, Either } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Cbor from "../../Codecs/Cbor.js"
 import * as Bip32 from "../../Crypto/Bip32.js"
@@ -19,6 +19,16 @@ export class InvalidAddress extends Data.TaggedError(
   constructor(address: Address.Address) {
     super({
       message: `Invalid COSE Sign1 header address: '${address}' isn't a PubKeyHash address`
+    })
+  }
+}
+
+export class SignerMismatch extends Data.TaggedError(
+  "Cardano.Cose.Sign1.SignerMismatch"
+)<{ message: string }> {
+  constructor(pk: PubKey.PubKey, address: Address.Address) {
+    super({
+      message: `COSE public key '${pk}' does not match the Sign1 address '${address}'`
     })
   }
 }
@@ -169,11 +179,33 @@ export function encode(sign1: Sign1): number[] {
 }
 
 export const verify = (sign1: Sign1, pubKey: PubKey.PubKey) =>
-  Ed25519.verify(
-    sign1.bytes,
-    Uint8Array.from(sigStructure(sign1.address, sign1.payload, sign1.kid)),
-    PubKey.bytes(pubKey)
-  )
+  Effect.gen(function* () {
+    yield* Ed25519.verify(
+      sign1.bytes,
+      Uint8Array.from(sigStructure(sign1.address, sign1.payload, sign1.kid)),
+      PubKey.bytes(pubKey)
+    )
+
+    const userId = PubKey.hash(pubKey)
+    const spendingCredential = Address.spendingCredential(sign1.address)
+    const stakingCredential = Address.stakingCredential(sign1.address)
+
+    if (
+      spendingCredential._tag !== "PubKey" &&
+      (!stakingCredential || stakingCredential._tag !== "PubKey")
+    ) {
+      return yield* Effect.fail(new InvalidAddress(sign1.address))
+    }
+
+    if (
+      spendingCredential.hash !== userId &&
+      stakingCredential?.hash !== userId
+    ) {
+      return yield* Effect.fail(new SignerMismatch(pubKey, sign1.address))
+    }
+
+    return
+  })
 
 export function encodeProtectedHeader(
   address: Address.Address,
