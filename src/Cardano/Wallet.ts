@@ -1,6 +1,7 @@
 import { Context, Effect } from "effect"
 import * as Bip32 from "../Crypto/Bip32.js"
 import * as Bip39 from "../Crypto/Bip39.js"
+import * as Cose from "./Cose/index.js"
 import * as Address from "./Ledger/Address.js"
 import * as PubKey from "./Ledger/PubKey.js"
 import * as Signature from "./Ledger/Signature.js"
@@ -60,6 +61,42 @@ export const Phrase = (
       utxos: utxosAt(address).pipe(
         Effect.mapError((e) => new Error(e.message))
       ),
+      signData: (
+        candidateAddress: Address.Address,
+        data: Uint8Array | number[] | string
+      ) =>
+        Effect.gen(function* () {
+          if (Address.stakingCredential(candidateAddress)) {
+            return yield* Effect.fail(
+              new Error(
+                "given address contains a staking credential but Phrase wallet only supports enterprise addresses"
+              )
+            )
+          }
+
+          const spendingCredential =
+            Address.spendingCredential(candidateAddress)
+
+          if (
+            spendingCredential._tag != "PubKey" ||
+            spendingCredential.hash != spendingPubKeyHash
+          ) {
+            return yield* Effect.fail(
+              new Error(
+                "given address.spendingCredential doesn't correspond to Phrase wallet's spending credential"
+              )
+            )
+          }
+
+          return {
+            signature: Cose.Sign1.sign(
+              candidateAddress,
+              spendingPrivateKey,
+              data
+            ),
+            key: spendingPublicKey
+          }
+        }),
       signTx: (tx: Tx.Tx) =>
         Effect.succeed([Bip32.sign(spendingPrivateKey)(Tx.hash(tx))])
     }
