@@ -1,4 +1,4 @@
-import { Either } from "effect"
+import { Data, Either } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Cbor from "../../Codecs/Cbor.js"
 import * as Bip32 from "../../Crypto/Bip32.js"
@@ -13,13 +13,25 @@ export type Sign1 = {
   kid?: Uint8Array
 }
 
+export class InvalidAddress extends Data.TaggedError(
+  "Cardano.Cose.Sign1.InvalidAddress"
+)<{ message: string }> {
+  constructor(address: Address.Address) {
+    super({
+      message: `Invalid COSE Sign1 header address: '${address}' isn't a PubKeyHash address`
+    })
+  }
+}
+
 export function make(
   address: Address.Address,
   payload: Bytes.BytesLike,
   bytes: Bytes.BytesLike,
   kid?: Bytes.BytesLike
-): Sign1 {
-  assertPubKeyAddress(address)
+): Either.Either<Sign1, InvalidAddress> {
+  if (Address.spendingCredential(address)._tag != "PubKey") {
+    return Either.left(new InvalidAddress(address))
+  }
 
   const sign1 = {
     address,
@@ -28,13 +40,13 @@ export function make(
   }
 
   if (kid !== undefined) {
-    return {
+    return Either.right({
       ...sign1,
       kid: Bytes.toUint8Array(kid)
-    }
+    })
   }
 
-  return sign1
+  return Either.right(sign1)
 }
 
 export function sign(
@@ -42,7 +54,7 @@ export function sign(
   privateKey: Bip32.SigningKey,
   payload: Bytes.BytesLike,
   kid?: Bytes.BytesLike
-): Sign1 {
+): Either.Either<Sign1, InvalidAddress> {
   const payloadBytes = Bytes.toUint8Array(payload)
   const kidBytes = kid === undefined ? undefined : Bytes.toUint8Array(kid)
   const signature = Bip32.sign(privateKey)(
@@ -137,11 +149,13 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Sign1> =>
       )
     }
 
-    return make(
-      address,
-      Uint8Array.from(payload),
-      Uint8Array.from(signatureBytes),
-      kid
+    return Either.getOrThrow(
+      make(
+        address,
+        Uint8Array.from(payload),
+        Uint8Array.from(signatureBytes),
+        kid
+      )
     )
   })
 
@@ -154,19 +168,12 @@ export function encode(sign1: Sign1): number[] {
   ])
 }
 
-export function verify(sign1: Sign1, pubKey: PubKey.PubKey): void {
-  const isValid = Either.getOrThrow(
-    Ed25519.verify(
-      sign1.bytes,
-      Uint8Array.from(sigStructure(sign1.address, sign1.payload, sign1.kid)),
-      PubKey.bytes(pubKey)
-    )
+export const verify = (sign1: Sign1, pubKey: PubKey.PubKey) =>
+  Ed25519.verify(
+    sign1.bytes,
+    Uint8Array.from(sigStructure(sign1.address, sign1.payload, sign1.kid)),
+    PubKey.bytes(pubKey)
   )
-
-  if (!isValid) {
-    throw new Error("invalid COSE Sign1 signature")
-  }
-}
 
 export function encodeProtectedHeader(
   address: Address.Address,
@@ -237,12 +244,4 @@ const decodeProtectedHeaderValue = (
       "invalid COSE Sign1 header: unexpected value type"
     )
   )
-}
-
-function assertPubKeyAddress(address: Address.Address): void {
-  if (Address.spendingCredential(address)._tag != "PubKey") {
-    throw new Error(
-      "invalid COSE Sign1 header address: not a PubKeyHash address"
-    )
-  }
 }

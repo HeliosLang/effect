@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Effect } from "effect"
+import { Effect, Either } from "effect"
 import * as Cose from "./Cose/index.js"
 import * as Address from "./Ledger/Address.js"
 import * as Wallet from "./Wallet.js"
@@ -36,11 +36,15 @@ describe("Cardano.Wallet.Phrase()", () => {
       wallet.signData(wallet.addressSync, "48656c6c6f20576f726c64")
     )
 
-    expect(signature.address).toBe(wallet.addressSync)
-    expect(Buffer.from(signature.payload).toString("hex")).toBe(
+    expect(signature._tag).toBe("Right")
+    if (!Either.isRight(signature)) {
+      throw new Error("Unexpected")
+    }
+    expect(signature.right.address).toBe(wallet.addressSync)
+    expect(Buffer.from(signature.right.payload).toString("hex")).toBe(
       "48656c6c6f20576f726c64"
     )
-    expect(() => Cose.Sign1.verify(signature, key)).not.toThrow()
+    expect(() => Cose.Sign1.verify(signature.right, key)).not.toThrow()
   })
 
   it("rejects signing for a different spending credential", () => {

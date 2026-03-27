@@ -12,12 +12,14 @@ const decodeAddress = (bytes: string): Address.Address =>
 
 describe("Cardano.Cose.Sign1", () => {
   it("encodes correctly", () => {
-    const sign1 = Sign1.make(
-      decodeAddress(
-        "603a5904074323a4cddfe1103969962a5807c6c37495db9df48d019f9a"
-      ),
-      "1b00000194d70e512f",
-      "32f4643ec6ae20b5c6b9c71d89eadbbdaf42bffadcb8bbda22203fb98640bf491530541bb659fe019b2ef5b0cefd7d683ea8a945a07333185317b16b2aa0440d"
+    const sign1 = Either.getOrThrow(
+      Sign1.make(
+        decodeAddress(
+          "603a5904074323a4cddfe1103969962a5807c6c37495db9df48d019f9a"
+        ),
+        "1b00000194d70e512f",
+        "32f4643ec6ae20b5c6b9c71d89eadbbdaf42bffadcb8bbda22203fb98640bf491530541bb659fe019b2ef5b0cefd7d683ea8a945a07333185317b16b2aa0440d"
+      )
     )
 
     expect(Bytes.toHex(Sign1.encode(sign1))).toBe(
@@ -58,12 +60,14 @@ describe("Cardano.Cose.Sign1", () => {
       )
     )
 
-    const sign1 = Sign1.make(
-      decodeAddress(
-        "603a5904074323a4cddfe1103969962a5807c6c37495db9df48d019f9a"
-      ),
-      "1b00000194d70e512f",
-      "32f4643ec6ae20b5c6b9c71d89eadbbdaf42bffadcb8bbda22203fb98640bf491530541bb659fe019b2ef5b0cefd7d683ea8a945a07333185317b16b2aa0440d"
+    const sign1 = Either.getOrThrow(
+      Sign1.make(
+        decodeAddress(
+          "603a5904074323a4cddfe1103969962a5807c6c37495db9df48d019f9a"
+        ),
+        "1b00000194d70e512f",
+        "32f4643ec6ae20b5c6b9c71d89eadbbdaf42bffadcb8bbda22203fb98640bf491530541bb659fe019b2ef5b0cefd7d683ea8a945a07333185317b16b2aa0440d"
+      )
     )
 
     expect(() => Sign1.verify(sign1, pubKey)).not.toThrow()
@@ -103,7 +107,9 @@ describe("Cardano.Cose.Sign1", () => {
       false,
       Credential.makePubKey(PubKey.hash(pubKey))
     )
-    const sign1 = Sign1.sign(address, privateKey, "48656c6c6f20576f726c64")
+    const sign1 = Either.getOrThrow(
+      Sign1.sign(address, privateKey, "48656c6c6f20576f726c64")
+    )
 
     expect(() => Sign1.verify(sign1, pubKey)).not.toThrow()
     expect(Bytes.toHex(Sign1.encode(sign1))).toBe(
