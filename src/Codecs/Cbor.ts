@@ -1,8 +1,19 @@
-import { Data, Either } from "effect"
+import { Data, Either, Schema } from "effect"
 import * as BigEndian from "./BigEndian.js"
 import * as Bytes from "./Bytes.js"
 import * as Float from "./Float.js"
 import * as Utf8 from "./Utf8.js"
+
+/**
+ * Schema that the checks that the Hex encoding is valid, and signals that the content should be decoded using Cbor
+ */
+export const HexEncodedCbor = Schema.String.pipe(
+  Schema.pattern(/^(?:[0-9a-fA-F]{2})+$/, {
+    message: () => "Expected an even-length hex encoded CBOR string"
+  })
+).annotations({
+  description: "Hex encoded CBOR bytes"
+})
 
 export type Decoder<T> = (
   stream: Bytes.Stream
