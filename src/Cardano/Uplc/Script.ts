@@ -229,6 +229,21 @@ export const apply = (script: Script, args: readonly Value.Value[]) =>
     return script
   })
 
+export const extractParams = (script: Script) =>
+  Effect.gen(function* () {
+    let term = yield* entryPoint(script)
+
+    const params: Value.Value[] = []
+
+    while (term._tag == "Apply" && term.arg._tag == "Const") {
+      params.unshift(term.arg.value)
+
+      term = term.fn
+    }
+
+    return params
+  })
+
 export { eval$ as eval }
 
 export function hash(script: Script): ValidatorHash {

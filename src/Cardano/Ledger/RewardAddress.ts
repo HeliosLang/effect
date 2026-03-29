@@ -39,6 +39,13 @@ export const FromUplcData = Schema.transformOrFail(
   }
 )
 
+export const script = (vh: ValidatorHash.ValidatorHash) =>
+  Effect.gen(function* () {
+    const isMainnet = yield* IsMainnet
+
+    return make(isMainnet, Credential.makeValidator(vh))
+  })
+
 export function make(
   isMainnet: boolean,
   cred: Credential.Credential
