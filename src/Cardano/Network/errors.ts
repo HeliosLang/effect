@@ -5,7 +5,7 @@ import type { UTxO } from "../Ledger/UTxO.js"
 import type { UTxORef } from "../Ledger/UTxORef.js"
 
 export class ConnectionError extends Data.TaggedError(
-  "CardanoNetworkConnectionError"
+  "Cardano.Network.ConnectionError"
 )<{
   message: string
 }> {
@@ -17,7 +17,7 @@ export class ConnectionError extends Data.TaggedError(
 }
 
 export class UnexpectedFormat extends Data.TaggedError(
-  "CardanoNetworkUnexpectedFormat"
+  "Cardano.Network.UnexpectedFormat"
 )<{
   message: string
 }> {

@@ -69,7 +69,7 @@ export const seed = (contract: Script.Script<3>) =>
     return yield* Schema.decode(UTxORef.FromUplcDataV3)(seedValue.data)
   })
 
-export const initialize = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
+export const initialize = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
   Effect.gen(function* () {
     const contract = yield* Contract
 
@@ -109,7 +109,7 @@ export const initialize = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
     b = yield* TxBuilder.pay({
       address,
       assets: nft,
-      datum: Schema.encodeSync(WitnessesFromUplcData)([witness])
+      datum: Schema.encodeSync(WitnessesFromUplcData)(witnesses)
     })(b)
 
     return b
