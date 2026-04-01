@@ -1,5 +1,6 @@
 import { Context, Effect } from "effect"
 import type { Address } from "../Ledger/Address.js"
+import type { TxHash } from "../Ledger/TxHash.js"
 import type { ConnectionError, UnexpectedFormat } from "./errors.js"
 
 /**
@@ -8,9 +9,15 @@ import type { ConnectionError, UnexpectedFormat } from "./errors.js"
  * TODO: add config for filtering, pagination etc. (these can potentially be a lot of transactions!)
  * TODO: add filtering by AssetClass
  */
-export class Txs extends Context.Tag("Cardano.Network.AddressTxs")<
+export class Txs extends Context.Tag("Cardano.Network.Txs")<
   Txs,
-  (args: {
-    address: Address
-  }) => Effect.Effect<Txs, ConnectionError | UnexpectedFormat>
+  (args: { address: Address }) => Effect.Effect<
+    {
+      hash: TxHash
+      indexInBlock?: number
+      blockHeight?: number
+      blockTime?: number
+    }[],
+    ConnectionError | UnexpectedFormat
+  >
 >() {}
