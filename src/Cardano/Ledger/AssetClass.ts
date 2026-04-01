@@ -9,7 +9,9 @@ export function isValid(assetClass: string): assetClass is AssetClass {
   if (n == 0) {
     return true
   } else {
-    return /^[0-9a-fA-F]+$/.test(assetClass) && n < 120 && n >= 56 && n % 2 == 0
+    return (
+      /^[0-9a-fA-F]+$/.test(assetClass) && n <= 120 && n >= 56 && n % 2 == 0
+    )
   }
 }
 

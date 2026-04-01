@@ -37,15 +37,13 @@ describe("UTxO.resolve()", () => {
 
     const resolved = Effect.runSync(
       resolve({})(spent.ref).pipe(
-        Effect.provideService(
-          Network.UTxO,
-          () =>
-            Effect.fail(
-              new Network.UTxOAlreadySpent(
-                spent,
-                "0202020202020202020202020202020202020202020202020202020202020202" as TxHash
-              )
+        Effect.provideService(Network.UTxO, () =>
+          Effect.fail(
+            new Network.UTxOAlreadySpent(
+              spent,
+              "0202020202020202020202020202020202020202020202020202020202020202" as TxHash
             )
+          )
         )
       )
     )
