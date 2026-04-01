@@ -91,15 +91,21 @@ export const encode = (options: { full?: boolean }) => (utxo: UTxO) => {
 export const resolve =
   (options: { trusted?: boolean }) => (utxo: UTxO | UTxORef.UTxORef) =>
     Effect.gen(function* () {
+      const getUTxO = yield* Network.UTxO
+      const resolveRef = (ref: UTxORef.UTxORef) =>
+        getUTxO(ref).pipe(
+          Effect.catchTag("Cardano.Network.UTxOAlreadySpent", (error) =>
+            Effect.succeed(error.utxo)
+          )
+        )
+
       if (typeof utxo == "string") {
-        const getUTxO = yield* Network.UTxO
-        return yield* getUTxO(utxo)
+        return yield* resolveRef(utxo)
       } else if ("ref" in utxo) {
         if (options.trusted === true) {
           return utxo
         } else {
-          const getUTxO = yield* Network.UTxO
-          return yield* getUTxO(utxo.ref)
+          return yield* resolveRef(utxo.ref)
         }
       } else {
         throw new Error(
