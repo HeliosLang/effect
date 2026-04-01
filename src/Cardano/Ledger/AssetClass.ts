@@ -18,7 +18,37 @@ export function isValid(assetClass: string): assetClass is AssetClass {
 export const AssetClass = Schema.transform(
   Schema.String,
   Schema.String.pipe(
-    Schema.filter((ac: string) => isValid(ac) || "Invalid Cardano AssetClass"),
+    Schema.filter((ac: string): true | string => {
+      if (isValid(ac)) {
+        return true
+      }
+
+      const issues: string[] = []
+
+      if (!/^[0-9a-fA-F]+$/.test(ac)) {
+        issues.push("must contain only hexadecimal characters")
+      }
+
+      if (ac.length > 0 && ac.length < 56) {
+        issues.push(
+          `is too short to contain a full 28-byte policy id (${ac.length} hex chars)`
+        )
+      }
+
+      if (ac.length > 120) {
+        issues.push(`is too long (${ac.length} hex chars); expected <= 120`)
+      }
+
+      if (ac.length % 2 !== 0) {
+        issues.push(`must contain an even number of hex chars (${ac.length})`)
+      }
+
+      if (issues.length === 0) {
+        issues.push("failed Ledger.AssetClass validation")
+      }
+
+      return `Invalid Cardano AssetClass '${JSON.stringify(ac)}': ${issues.join("; ")}`
+    }),
     Schema.brand("AssetClass")
   ),
   {
