@@ -4,6 +4,8 @@ import * as Cbor from "../../Codecs/Cbor.js"
 import * as Data from "../Uplc/Data.js"
 import * as ValidatorHash from "./ValidatorHash.js"
 
+export type MintingPolicy = "" | ValidatorHash.ValidatorHash
+
 export function isValid(mph: string): mph is MintingPolicy {
   const n = mph.length
 
@@ -17,11 +19,8 @@ export function isValid(mph: string): mph is MintingPolicy {
 export const MintingPolicy = Schema.String.pipe(
   Schema.filter(
     (mph: string) => isValid(mph) || "Invalid Cardano MintingPolicy"
-  ),
-  Schema.brand("MintingPolicy")
-)
-
-export type MintingPolicy = Schema.Schema.Type<typeof MintingPolicy>
+  )
+) as Schema.Schema<MintingPolicy, string>
 
 export const FromUplcData = Schema.transform(Data.ByteArray, MintingPolicy, {
   strict: true,

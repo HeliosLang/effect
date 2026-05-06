@@ -69,6 +69,19 @@ export const seed = (contract: Script.Script<3>) =>
     return yield* Schema.decode(UTxORef.FromUplcDataV3)(seedValue.data)
   })
 
+export const hash = Effect.map(Contract, Script.hash)
+
+const $utxos = () => Effect.gen(function* () {
+  const vh = yield* hash
+  const address = yield* Address.script(vh)
+  const getUTxOsAt = yield* Network.UTxOsAt
+  const utxos = yield* getUTxOsAt(address)
+
+  return utxos.filter((utxo) => Object.keys(utxo.output.assets).some(key => key.startsWith(vh)))
+})
+
+export { $utxos as utxos }
+
 export const initialize = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
   Effect.gen(function* () {
     const contract = yield* Contract
@@ -87,7 +100,7 @@ export const initialize = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
     b = yield* TxBuilder.spend(seedResolved)(b)
 
     // get the contract validator hash
-    const vh = Script.hash(contract)
+    const vh = yield* hash
     const nft: Assets.Assets = { [vh]: 1n }
     const address = yield* Address.script(vh)
 
@@ -143,13 +156,11 @@ export const addWitness = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
   Effect.gen(function* () {
     const contract = yield* Contract
 
-    const vh = Script.hash(contract)
+    const vh = yield* hash
     const nft: Assets.Assets = { [vh]: 1n }
     const address = yield* Address.script(vh)
 
-    const getUTxOsAt = yield* Network.UTxOsAt
-    const utxos = yield* getUTxOsAt(address)
-    const [utxo] = utxos.filter((utxo) => vh in utxo.output.assets)
+    const [utxo] = yield* $utxos()
 
     if (utxo === undefined) {
       return yield* Effect.fail(new Error("Couldn't find contract state UTxO"))
@@ -213,13 +224,11 @@ export const removeWitness = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
   Effect.gen(function* () {
     const contract = yield* Contract
 
-    const vh = Script.hash(contract)
+    const vh = yield* hash
     const nft: Assets.Assets = { [vh]: 1n }
     const address = yield* Address.script(vh)
 
-    const getUTxOsAt = yield* Network.UTxOsAt
-    const utxos = yield* getUTxOsAt(address)
-    const [utxo] = utxos.filter((utxo) => vh in utxo.output.assets)
+    const [utxo] = yield* $utxos()
 
     if (utxo === undefined) {
       return yield* Effect.fail(new Error("Couldn't find contract state UTxO"))
@@ -261,7 +270,7 @@ export const mint = (assets: Assets.Assets) => (b: TxBuilder.TxBuilder) =>
   Effect.gen(function* () {
     const contract = yield* Contract
 
-    const vh = Script.hash(contract)
+    const vh = yield* hash
     const address = yield* Address.script(vh)
 
     for (const key in assets) {
@@ -272,9 +281,7 @@ export const mint = (assets: Assets.Assets) => (b: TxBuilder.TxBuilder) =>
       }
     }
 
-    const getUTxOsAt = yield* Network.UTxOsAt
-    const utxos = yield* getUTxOsAt(address)
-    const [utxo] = utxos.filter((utxo) => vh in utxo.output.assets)
+    const [utxo] = yield* $utxos()
 
     if (utxo === undefined) {
       return yield* Effect.fail(new Error("Couldn't find contract state UTxO"))
@@ -300,22 +307,20 @@ export const mintEffect = (assets: Assets.Assets) =>
   Effect.flatMap(mint(assets))
 
 export const spend =
-  (utxos: UTxO.UTxO | UTxO.UTxO[]) => (b: TxBuilder.TxBuilder) =>
+  (inputs: UTxO.UTxO | UTxO.UTxO[]) => (b: TxBuilder.TxBuilder) =>
     Effect.gen(function* () {
       const contract = yield* Contract
 
-      const vh = Script.hash(contract)
+      const vh = yield* hash
       const address = yield* Address.script(vh)
 
-      for (const utxo of Array.isArray(utxos) ? utxos : [utxos]) {
+      for (const utxo of Array.isArray(inputs) ? inputs : [inputs]) {
         if (utxo.output.address != address) {
           return yield* Effect.fail(new Error("spending unrelated UTxO"))
         }
       }
 
-      const getUTxOsAt = yield* Network.UTxOsAt
-      const stateUtxos = yield* getUTxOsAt(address)
-      const [stateUtxO] = stateUtxos.filter((utxo) => vh in utxo.output.assets)
+      const [stateUtxO] = yield* $utxos()
 
       if (stateUtxO === undefined) {
         return yield* Effect.fail(
@@ -332,7 +337,7 @@ export const spend =
       )
 
       b = yield* TxBuilder.spend(
-        utxos,
+        inputs,
         buildWitnessRedeemer(vh, address, stateUtxO.ref, inputWitnesses)
       )(b)
 
