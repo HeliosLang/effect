@@ -120,9 +120,15 @@ export function pretty(assetClass: string): string {
 
 export function policy(assetClass: string): MintingPolicy.MintingPolicy {
   if (assetClass.length == 0) {
-    return "" as MintingPolicy.MintingPolicy
+    return ""
   } else {
-    return assetClass.slice(0, 56) as MintingPolicy.MintingPolicy
+    const policy = assetClass.slice(0, 56)
+
+    if (!MintingPolicy.isValid(policy)) {
+      throw new Error("invalid policy in asset class")
+    }
+
+    return policy
   }
 }
 

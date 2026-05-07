@@ -88,18 +88,14 @@ const decodeInternal = (bytes: Bytes.BytesLike) =>
       case 0xe0:
         return {
           isMainnet: mainnet,
-          credential: {
-            _tag: "PubKey",
-            hash: yield* PubKeyHash.make(hashBytes)
-          } as Credential.Credential
+          credential: Credential.makePubKey(yield* PubKeyHash.make(hashBytes))
         }
       case 0xf0:
         return {
           isMainnet: mainnet,
-          credential: {
-            _tag: "Validator",
-            hash: yield* ValidatorHash.make(hashBytes)
-          } as Credential.Credential
+          credential: Credential.makeValidator(
+            yield* ValidatorHash.make(hashBytes)
+          )
         }
       default:
         return yield* Either.left(

@@ -781,7 +781,7 @@ export const Enum = <
                 return Effect.fail(
                   new ParseResult.Unexpected(
                     data,
-                    `expected at least ${i + 1} entries in ConstrData of ${variantName as unknown as string}`
+                    `expected at least ${i + 1} entries in ConstrData of ${String(variantName)}`
                   )
                 )
               }
@@ -809,9 +809,7 @@ export const Enum = <
       encode: (value) => {
         const variantName = value._tag
 
-        const tag = Object.keys(variants).indexOf(
-          variantName as unknown as string
-        )
+        const tag = Object.keys(variants).indexOf(String(variantName))
 
         const variant = variants[variantName]
 

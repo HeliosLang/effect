@@ -55,7 +55,7 @@ export function hash(policy: MintingPolicy): ValidatorHash.ValidatorHash {
     throw new Error("can't convert Ada policy to hash")
   }
 
-  return policy as string as ValidatorHash.ValidatorHash
+  return policy
 }
 
 export const compare = (a: MintingPolicy, b: MintingPolicy) =>

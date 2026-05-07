@@ -41,7 +41,7 @@ export const FromUplcData = (sortTokens: boolean = false) =>
           }
         }
 
-        return assets as Assets
+        return assets
       },
       encode: (assets) => {
         const outer = nestedRecords(assets)
@@ -124,7 +124,7 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Assets> =>
         }
       }
 
-      return assets as Assets
+      return assets
     } else if (Cbor.isMap(bytes)) {
       const otherAssets = yield* Cbor.decodeMap(
         MintingPolicy.decode,
@@ -150,7 +150,7 @@ export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Assets> =>
         }
       }
 
-      return assets as Assets
+      return assets
     } else {
       return { [AssetClass.ADA]: yield* Cbor.decodeInt(stream) }
     }
@@ -235,7 +235,7 @@ export const filterByPolicy =
         ([ac]) =>
           (policy == "" && ac == "") || (policy != "" && ac.startsWith(policy))
       )
-    ) as Assets
+    )
   }
 
 export const filterPositive = (assets: Assets): Assets => {

@@ -1611,7 +1611,7 @@ const balanceTx = (tx: Tx.Tx) =>
     while (diff > 0n) {
       yield* selectAndAddInputs(
         Assets.add(
-          { "": diff } as Assets.Assets,
+          { "": diff },
           Assets.negate(Assets.filterNegative(changeOutput.assets))
         )
       )
