@@ -1171,7 +1171,8 @@ export const build =
             ...tx.witnesses.signatures,
             ...(yield* (yield* BalancingWallet).signTx(tx))
           ]
-        }
+        },
+        isValid: true
       }
 
       return tx
