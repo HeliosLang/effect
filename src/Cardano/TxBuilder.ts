@@ -87,12 +87,12 @@ export class DatumNotFound extends Data.TaggedError(
   }
 }
 
-export class ColleteralNotAvailable extends Data.TaggedError(
+export class CollateralNotAvailable extends Data.TaggedError(
   "Cardano.TxBuilder.CollateralNotAvailable"
 )<{ message: string }> {
   constructor() {
     super({
-      message: `Colleteral not available (grabbing colleteral utxos from existing inputs or spare utxos still needs to be implemented)`
+      message: "Collateral not available"
     })
   }
 }
@@ -1096,11 +1096,6 @@ export const build =
       const outputs: TxOutput.TxOutput[] = yield* buildNonChangeOutputs
 
       /**
-       * Simple select a collateral input from the params if smart
-       */
-      const collateralInputs = yield* selectCollateralInputs
-
-      /**
        * Create an unbalanced tx. In this tx a few fields are not yet final:
        *   - inputs
        *   - outputs
@@ -1125,9 +1120,9 @@ export const build =
           minted: b.minted,
           refInputs: b.refInputs,
           totalCollateral: 0n,
-          collateral: collateralInputs,
+          collateral: [],
           signers: b.signers,
-          collateralReturn: undefined, // TODO
+          collateralReturn: undefined,
           metadataHash,
           encoding: options.bodyEncoding
         } satisfies Tx.Body,
@@ -1162,38 +1157,8 @@ export const build =
 
       yield* Console.log(`Built redeemers without cost`)
 
-      /**
-       * Now in a loop the transaction is updated:
-       *   - fee is set to min fee
-       *   - the tx is balanced, grabbing inputs from the spareUTxOs and creating a change UTxO if there wasn't already a change UTxO
-       *   - any lazy redeemer data is built (usually depends on order of inputs/outputs etc.)
-       *   - the cost of each redeemer is calculated
-       *   - the scriptDataHash is updated
-       *
-       * The loop continues as long as the tx.fee field is smaller than the min required field.
-       * We know that this loop will run at least once because initially tx.fee=0n, ensuring the tx is balanced
-       */
-      yield* Console.log(`Start loop`)
-      while (tx.body.fee < (yield* Tx.minFee(tx))) {
-        yield* Console.log(`Updating fee`)
-        tx = yield* updateFee(tx)
-
-        yield* Console.log(`Updated fee`)
-
-        tx = yield* balanceTx(tx)
-
-        yield* Console.log(`Balanced tx`)
-
-        tx = yield* buildRedeemersWithCost(tx)
-
-        yield* Console.log(`Built redeemers with cost`)
-
-        tx = yield* updateScriptDataHash(tx)
-
-        yield* Console.log(`Updated script hash`)
-      }
-
-      yield* Console.log(`End loop`)
+      tx = yield* convergeTx(tx)
+      tx = yield* convergeCollateral(tx)
 
       /**
        * Sign using balancing wallet
@@ -1284,7 +1249,7 @@ const buildNonChangeOutputs = Effect.gen(function* () {
   return outputs
 })
 
-const selectCollateralInputs = Effect.gen(function* () {
+const selectNetworkManagedCollateralInputs = Effect.gen(function* () {
   const b = yield* CurrentTxBuilder
 
   if (!hasRedeemers(b)) {
@@ -1295,12 +1260,237 @@ const selectCollateralInputs = Effect.gen(function* () {
     const ref = params.collateralUTXO
 
     if (!ref) {
-      return yield* Effect.fail(new ColleteralNotAvailable())
+      return yield* Effect.fail(new CollateralNotAvailable())
     }
 
     return [yield* (yield* Network.UTxO)(ref)]
   }
 })
+
+const convergeTx = (tx: Tx.Tx) =>
+  Effect.gen(function* () {
+    yield* Console.log(`Start loop`)
+
+    while (tx.body.fee < (yield* Tx.minFee(tx))) {
+      yield* Console.log(`Updating fee`)
+      tx = yield* updateFee(tx)
+
+      yield* Console.log(`Updated fee`)
+
+      tx = yield* balanceTx(tx)
+
+      yield* Console.log(`Balanced tx`)
+
+      tx = yield* buildRedeemersWithCost(tx)
+
+      yield* Console.log(`Built redeemers with cost`)
+
+      tx = yield* updateScriptDataHash(tx)
+
+      yield* Console.log(`Updated script hash`)
+    }
+
+    yield* Console.log(`End loop`)
+
+    return tx
+  })
+
+const convergeCollateral = (tx: Tx.Tx) =>
+  Effect.gen(function* () {
+    const b = yield* CurrentTxBuilder
+
+    if (!hasRedeemers(b)) {
+      return tx
+    }
+
+    let previousFingerprint = ""
+
+    for (let i = 0; i < 3; i++) {
+      const nextTx = yield* applyCollateral(tx)
+      const nextFingerprint = collateralFingerprint(nextTx)
+
+      tx = yield* convergeTx(nextTx)
+
+      if (nextFingerprint == previousFingerprint) {
+        return tx
+      }
+
+      previousFingerprint = nextFingerprint
+    }
+
+    return tx
+  })
+
+const collateralFingerprint = (tx: Tx.Tx) =>
+  JSON.stringify({
+    collateral: tx.body.collateral.map((utxo) => utxo.ref),
+    totalCollateral: tx.body.totalCollateral.toString(),
+    collateralReturn: tx.body.collateralReturn?.assets[""]?.toString()
+  })
+
+const applyCollateral = (tx: Tx.Tx) =>
+  Effect.gen(function* () {
+    const b = yield* CurrentTxBuilder
+
+    if (!hasRedeemers(b)) {
+      return {
+        ...tx,
+        body: {
+          ...tx.body,
+          collateral: [],
+          totalCollateral: 0n,
+          collateralReturn: undefined
+        }
+      }
+    }
+
+    const params = yield* Network.Params.params
+
+    if (params.collateralUTXO !== undefined) {
+      const collateral = yield* selectNetworkManagedCollateralInputs
+
+      return {
+        ...tx,
+        body: {
+          ...tx.body,
+          collateral,
+          totalCollateral: 0n,
+          collateralReturn: undefined
+        }
+      }
+    }
+
+    return yield* applyLocalCollateral(tx)
+  })
+
+const applyLocalCollateral = (tx: Tx.Tx) =>
+  Effect.gen(function* () {
+    const balancingWallet = yield* BalancingWallet
+    const changeAddress = yield* balancingWallet.changeAddress
+    const required = yield* Tx.minCollateral(tx)
+    const selected = yield* selectLocalCollateralInputs(tx, required)
+    const selectedLovelace = UTxO.sumAssets(...selected)[""] ?? 0n
+    const change = selectedLovelace - required
+
+    return {
+      ...tx,
+      body: {
+        ...tx.body,
+        collateral: selected,
+        totalCollateral: required,
+        collateralReturn:
+          change == 0n
+            ? undefined
+            : {
+                address: changeAddress,
+                assets: { "": change }
+              }
+      }
+    }
+  })
+
+const selectLocalCollateralInputs = (tx: Tx.Tx, required: bigint) =>
+  Effect.gen(function* () {
+    const balancingWallet = yield* BalancingWallet
+    const spareUTxOs = yield* balancingWallet.utxos
+    const changeAddress = yield* balancingWallet.changeAddress
+    const params = yield* Network.Params.params
+    const minReturnLovelace = yield* TxOutput.minLovelace({
+      address: changeAddress,
+      assets: { "": 1n }
+    })
+
+    const preferred = uniqueCollateralCandidates(
+      tx.body.inputs.concat(tx.body.refInputs)
+    )
+    const all = uniqueCollateralCandidates(preferred.concat(spareUTxOs ?? []))
+
+    const pick = (candidates: readonly UTxO.UTxO[]) => {
+      for (const target of [required, required + minReturnLovelace]) {
+        const selected = selectCollateralCoins(candidates, target)
+
+        if (selected === undefined) {
+          continue
+        }
+
+        if (selected.length > params.maxCollateralInputs) {
+          continue
+        }
+
+        const selectedLovelace = UTxO.sumAssets(...selected)[""] ?? 0n
+        const change = selectedLovelace - required
+
+        if (change == 0n || change >= minReturnLovelace) {
+          return selected
+        }
+      }
+
+      return undefined
+    }
+
+    const selected = pick(preferred) ?? pick(all)
+
+    if (selected === undefined || selected.length == 0) {
+      return yield* Effect.fail(new CollateralNotAvailable())
+    }
+
+    return selected
+  })
+
+const uniqueCollateralCandidates = (utxos: readonly UTxO.UTxO[]) => {
+  const unique: UTxO.UTxO[] = []
+  const seen = new Set<string>()
+
+  for (const utxo of utxos) {
+    if (
+      !seen.has(utxo.ref) &&
+      Assets.containsOnlyAda(utxo.output.assets) &&
+      (utxo.output.assets[""] ?? 0n) > 0n
+    ) {
+      seen.add(utxo.ref)
+      unique.push(utxo)
+    }
+  }
+
+  return unique
+}
+
+const selectCollateralCoins = (
+  candidates: readonly UTxO.UTxO[],
+  target: bigint
+): UTxO.UTxO[] | undefined => {
+  if (candidates.length == 0) {
+    return undefined
+  }
+
+  const sorted = candidates
+    .slice()
+    .sort(
+      (a, b) =>
+        Number((a.output.assets[""] ?? 0n) - (b.output.assets[""] ?? 0n)) ||
+        UTxO.compare(a, b)
+    )
+
+  const single = sorted.find((utxo) => (utxo.output.assets[""] ?? 0n) >= target)
+
+  if (single !== undefined) {
+    return [single]
+  }
+
+  const selected: UTxO.UTxO[] = []
+  let total = 0n
+
+  for (const utxo of sorted) {
+    selected.push(utxo)
+    total += utxo.output.assets[""] ?? 0n
+
+    if (total >= target) {
+      return selected
+    }
+  }
+
+  return undefined
+}
 
 const buildRedeemersWithoutCost = (tx: Tx.Tx) =>
   CurrentTxBuilder.pipe(
