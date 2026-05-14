@@ -349,11 +349,18 @@ export const metadata =
 export const metadataEffect = (mdata: Tx.Metadata) =>
   Effect.map(metadata(mdata))
 
+type MintOptions = {
+  redeemerDedupe?: "fail" | "keep" | "update"
+}
+
 /**
  * Filters out ADA
  * Entries in assets can be negative for burning
+ *
+ * Assets are added to previously minted values.
  */
 export const mint =
+  ({ redeemerDedupe = "update" }: MintOptions = {}) =>
   (
     assets: Assets.Assets,
     redeemer: Uplc.Data.Data | RedeemerBuilder | undefined = undefined
@@ -380,7 +387,11 @@ export const mint =
             return yield* Effect.fail(new MissingScript(hash))
           }
 
-          b = yield* addMintingRedeemer(b, policy, redeemer)
+          b = yield* addMintingRedeemer({ dedupe: redeemerDedupe })(
+            b,
+            policy,
+            redeemer
+          )
         } else {
           if (!hasNativeScript(b, hash)) {
             return yield* Effect.fail(new MissingRedeemer())
@@ -391,10 +402,13 @@ export const mint =
       return b
     })
 
-export const mintEffect = (
-  assets: Assets.Assets,
-  redeemer: Uplc.Data.Data | RedeemerBuilder | undefined = undefined
-) => Effect.flatMap(mint(assets, redeemer))
+export const mintEffect =
+  (options: MintOptions = {}) =>
+  (
+    assets: Assets.Assets,
+    redeemer: Uplc.Data.Data | RedeemerBuilder | undefined = undefined
+  ) =>
+    Effect.flatMap(mint(options)(assets, redeemer))
 
 export const pay =
   (...outputs: TxOutput.TxOutput[]) =>
@@ -410,12 +424,23 @@ export const pay =
 export const payEffect = (...outputs: TxOutput.TxOutput[]) =>
   Effect.flatMap(pay(...outputs))
 
+/**
+ * `dedupe` defaults to "ignore", which if UTxO is already referenced refer/referEffect return silently
+ */
+type ReferOptions = {
+  dedupe?: "fail" | "ignore"
+}
+
 export const refer =
+  ({ dedupe = "ignore" }: ReferOptions = {}) =>
   (...utxos: UTxO.UTxO[]) =>
   (b: TxBuilder) =>
     Effect.gen(function* () {
       for (const utxo of utxos) {
-        b = yield* addRefInput(b, utxo)
+        b = yield* addRefInput({ failIfAlreadyAdded: dedupe === "fail" })(
+          b,
+          utxo
+        )
 
         const refScript = utxo.output.refScript
 
@@ -432,8 +457,10 @@ export const refer =
       return b
     })
 
-export const referEffect = (...utxos: UTxO.UTxO[]) =>
-  Effect.flatMap(refer(...utxos))
+export const referEffect =
+  (options: ReferOptions) =>
+  (...utxos: UTxO.UTxO[]) =>
+    Effect.flatMap(refer(options)(...utxos))
 
 export const register =
   (credential: Credential.Credential) => (b: TxBuilder) => {
@@ -448,6 +475,11 @@ export const register =
 export const registerEffect = (credential: Credential.Credential) =>
   Effect.map(register(credential))
 
+/**
+ * Returns silently if alrady added before
+ * @param signers
+ * @returns
+ */
 export const sign =
   (...signers: PubKeyHash.PubKeyHash[]) =>
   (b: TxBuilder) => {
@@ -461,7 +493,18 @@ export const sign =
 export const signEffect = (...signers: PubKeyHash.PubKeyHash[]) =>
   Effect.map(sign(...signers))
 
+/**
+ * `dedupe` defaults to "update". Options:
+ *   "fail" means an error is thrown if a UTxO is already being spent
+ *   "keep" means the previous redeemer is kept in case the UTxO is already being spent (this only matters for smart contract UTxOs)
+ *   "update" means the redeemer is rewritten in case the UTxO is already being spent (this only matters for smart contract UTxOs)
+ */
+type SpendOptions = {
+  dedupe?: "fail" | "keep" | "update"
+}
+
 export const spend =
+  ({ dedupe = "update" }: SpendOptions = {}) =>
   (
     utxos: UTxO.UTxO | UTxO.UTxO[],
     redeemer: Uplc.Data.Data | RedeemerBuilder | undefined = undefined
@@ -469,7 +512,13 @@ export const spend =
   (b: TxBuilder) =>
     Effect.gen(function* () {
       for (const utxo of Array.isArray(utxos) ? utxos : [utxos]) {
-        b = yield* addInput(b, utxo)
+        const preexisting = hasInput(b, utxo.ref)
+
+        if (preexisting && dedupe === "keep") {
+          continue
+        }
+
+        b = yield* addInput({ failIfAlreadyAdded: dedupe === "fail" })(b, utxo)
 
         const spendingCred = Address.spendingCredential(utxo.output.address)
 
@@ -482,7 +531,7 @@ export const spend =
             return yield* Effect.fail(new MissingScript(spendingCred.hash))
           }
 
-          b = yield* addSpendingRedeemer(b, utxo, redeemer)
+          b = yield* addSpendingRedeemer({ dedupe })(b, utxo, redeemer)
 
           const datum = utxo.output.datum
 
@@ -507,10 +556,13 @@ export const spend =
       return b
     })
 
-export const spendEffect = (
-  utxos: UTxO.UTxO | UTxO.UTxO[],
-  redeemer: Uplc.Data.Data | RedeemerBuilder | undefined = undefined
-) => Effect.flatMap(spend(utxos, redeemer))
+export const spendEffect =
+  (options: SpendOptions = {}) =>
+  (
+    utxos: UTxO.UTxO | UTxO.UTxO[],
+    redeemer: Uplc.Data.Data | RedeemerBuilder | undefined = undefined
+  ) =>
+    Effect.flatMap(spend(options)(utxos, redeemer))
 
 export const validFromSlot =
   (slot: number) =>
@@ -662,51 +714,69 @@ function addDCert(b: TxBuilder, dcert: DCert.DCert): TxBuilder {
   return b
 }
 
-const addInput = (b: TxBuilder, input: UTxO.UTxO) =>
-  Effect.gen(function* () {
-    yield* Assets.assertAllPositive(input.output.assets)
+type AddInputOptions = {
+  failIfAlreadyAdded: boolean
+}
 
-    if (hasInput(b, input.ref)) {
-      return yield* Effect.fail(new UTxOAlreadyAdded(input.ref))
-    }
+const addInput =
+  (options: AddInputOptions) => (b: TxBuilder, input: UTxO.UTxO) =>
+    Effect.gen(function* () {
+      yield* Assets.assertAllPositive(input.output.assets)
 
-    if (hasRefInput(b, input.ref)) {
-      return yield* Effect.fail(new UTxOAlreadyAdded(input.ref))
-    }
+      if (hasInput(b, input.ref)) {
+        if (options.failIfAlreadyAdded) {
+          return yield* Effect.fail(new UTxOAlreadyAdded(input.ref))
+        } else {
+          return b
+        }
+      }
 
-    // assign result before returning so that return type is TxBuilder
-    b = {
-      ...b,
-      inputs: UTxO.append(b.inputs, input)
-    }
+      if (hasRefInput(b, input.ref)) {
+        return yield* Effect.fail(new UTxOAlreadyAdded(input.ref))
+      }
 
-    return b
-  })
+      // assign result before returning so that return type is TxBuilder
+      b = {
+        ...b,
+        inputs: UTxO.append(b.inputs, input)
+      }
+
+      return b
+    })
 
 function hasInput(b: TxBuilder, ref: UTxORef.UTxORef): boolean {
   return b.inputs.some((utxo) => utxo.ref == ref)
 }
 
-const addRefInput = (b: TxBuilder, refInput: UTxO.UTxO) =>
-  Effect.gen(function* () {
-    yield* Assets.assertAllPositive(refInput.output.assets)
+type AddRefInputOptions = {
+  failIfAlreadyAdded: boolean
+}
 
-    if (b.inputs.some((utxo) => utxo.ref == refInput.ref)) {
-      return yield* Effect.fail(new UTxOAlreadyAdded(refInput.ref))
-    }
+const addRefInput =
+  (options: AddRefInputOptions) => (b: TxBuilder, refInput: UTxO.UTxO) =>
+    Effect.gen(function* () {
+      yield* Assets.assertAllPositive(refInput.output.assets)
 
-    if (b.refInputs.some((utxo) => utxo.ref == refInput.ref)) {
-      return yield* Effect.fail(new UTxOAlreadyAdded(refInput.ref))
-    }
+      if (hasInput(b, refInput.ref)) {
+        return yield* Effect.fail(new UTxOAlreadyAdded(refInput.ref))
+      }
 
-    // assign result before returning so that return type is TxBuilder
-    b = {
-      ...b,
-      refInputs: UTxO.append(b.refInputs, refInput)
-    }
+      if (hasRefInput(b, refInput.ref)) {
+        if (options.failIfAlreadyAdded) {
+          return yield* Effect.fail(new UTxOAlreadyAdded(refInput.ref))
+        } else {
+          return b
+        }
+      }
 
-    return b
-  })
+      // assign result before returning so that return type is TxBuilder
+      b = {
+        ...b,
+        refInputs: UTxO.append(b.refInputs, refInput)
+      }
+
+      return b
+    })
 
 function hasRefInput(b: TxBuilder, ref: UTxORef.UTxORef): boolean {
   return b.refInputs.some((utxo) => utxo.ref == ref)
@@ -754,23 +824,44 @@ function hasCertifyingRedeemer(b: TxBuilder, dcert: DCert.DCert): boolean {
   return b.dcerts.some((d) => DCert.equals(d, dcert))
 }
 
-function addMintingRedeemer(
-  b: TxBuilder,
-  policy: MintingPolicy.MintingPolicy,
-  redeemer: Uplc.Data.Data | RedeemerBuilder
-) {
-  if (hasMintingRedeemer(b, policy)) {
-    return Effect.fail(new RedeemerAlreadyAdded())
-  }
-
-  // assign result before returning so that return type is TxBuilder
-  b = {
-    ...b,
-    mintingRedeemers: [...b.mintingRedeemers, { policy, redeemer }]
-  }
-
-  return Effect.succeed(b)
+type AddMintingRedeemerOptions = {
+  dedupe: "fail" | "keep" | "update"
 }
+
+const addMintingRedeemer =
+  (options: AddMintingRedeemerOptions) =>
+  (
+    b: TxBuilder,
+    policy: MintingPolicy.MintingPolicy,
+    redeemer: Uplc.Data.Data | RedeemerBuilder
+  ) => {
+    if (hasMintingRedeemer(b, policy)) {
+      switch (options.dedupe) {
+        case "keep":
+          break
+        case "update":
+          // assign result before returning so that return type is TxBuilder
+          b = {
+            ...b,
+            mintingRedeemers: [
+              ...b.mintingRedeemers.filter((r) => r.policy != policy),
+              { policy, redeemer }
+            ]
+          }
+          break
+        default:
+          return Effect.fail(new RedeemerAlreadyAdded())
+      }
+    } else {
+      // assign result before returning so that return type is TxBuilder
+      b = {
+        ...b,
+        mintingRedeemers: [...b.mintingRedeemers, { policy, redeemer }]
+      }
+    }
+
+    return Effect.succeed(b)
+  }
 
 function hasMintingRedeemer(
   b: TxBuilder,
@@ -804,23 +895,44 @@ function hasRewardingRedeemer(
   return b.rewardingRedeemers.some((r) => r.addr == addr)
 }
 
-function addSpendingRedeemer(
-  b: TxBuilder,
-  utxo: UTxO.UTxO,
-  redeemer: Uplc.Data.Data | RedeemerBuilder
-) {
-  if (hasSpendingRedeemer(b, utxo)) {
-    return Effect.fail(new RedeemerAlreadyAdded())
-  }
-
-  // assign result before returning so that return type is TxBuilder
-  b = {
-    ...b,
-    spendingRedeemers: [...b.spendingRedeemers, { utxo, redeemer }]
-  }
-
-  return Effect.succeed(b)
+type AddSpendingRedeemerOptions = {
+  dedupe: "fail" | "keep" | "update"
 }
+
+const addSpendingRedeemer =
+  (options: AddSpendingRedeemerOptions) =>
+  (
+    b: TxBuilder,
+    utxo: UTxO.UTxO,
+    redeemer: Uplc.Data.Data | RedeemerBuilder
+  ) => {
+    if (hasSpendingRedeemer(b, utxo)) {
+      switch (options.dedupe) {
+        case "keep":
+          break
+        case "update":
+          // assign result before returning so that return type is TxBuilder
+          b = {
+            ...b,
+            spendingRedeemers: [
+              ...b.spendingRedeemers.filter((r) => r.utxo.ref != utxo.ref),
+              { utxo, redeemer }
+            ]
+          }
+          break
+        default:
+          return Effect.fail(new RedeemerAlreadyAdded())
+      }
+    } else {
+      // assign result before returning so that return type is TxBuilder
+      b = {
+        ...b,
+        spendingRedeemers: [...b.spendingRedeemers, { utxo, redeemer }]
+      }
+    }
+
+    return Effect.succeed(b)
+  }
 
 function hasSpendingRedeemer(b: TxBuilder, utxo: UTxO.UTxO): boolean {
   return b.spendingRedeemers.some((r) => r.utxo.ref == utxo.ref)

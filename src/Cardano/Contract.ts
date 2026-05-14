@@ -71,14 +71,33 @@ export const seed = (contract: Script.Script<3>) =>
 
 export const hash = Effect.map(Contract, Script.hash)
 
-const $utxos = () => Effect.gen(function* () {
-  const vh = yield* hash
-  const address = yield* Address.script(vh)
-  const getUTxOsAt = yield* Network.UTxOsAt
-  const utxos = yield* getUTxOsAt(address)
+/**
+ * @returns
+ * The list UTxOs stored at the contract address containing a contract asset.
+ * The state UTxO is returned first
+ */
+const $utxos = () =>
+  Effect.gen(function* () {
+    const vh = yield* hash
+    const address = yield* Address.script(vh)
+    const getUTxOsAt = yield* Network.UTxOsAt
+    const utxos = yield* getUTxOsAt(address)
 
-  return utxos.filter((utxo) => Object.keys(utxo.output.assets).some(key => key.startsWith(vh)))
-})
+    return utxos
+      .filter((utxo) =>
+        Object.keys(utxo.output.assets).some((key) => key.startsWith(vh))
+      )
+      .sort((a, b) => {
+        const aIsStateUTxO = Object.keys(a.output.assets).some(
+          (key) => key == vh
+        )
+        const bIsStateUTxO = Object.keys(b.output.assets).some(
+          (key) => key == vh
+        )
+
+        return Number(bIsStateUTxO) - Number(aIsStateUTxO)
+      })
+  })
 
 export { $utxos as utxos }
 
@@ -97,7 +116,7 @@ export const initialize = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
     const seedResolved = yield* getUTxO(yield* seed(contract))
 
     // spend the seed
-    b = yield* TxBuilder.spend(seedResolved)(b)
+    b = yield* TxBuilder.spend({ dedupe: "keep" })(seedResolved)(b)
 
     // get the contract validator hash
     const vh = yield* hash
@@ -107,7 +126,7 @@ export const initialize = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
     b = TxBuilder.attachScript(contract)(b)
 
     // mint the state token
-    b = yield* TxBuilder.mint(nft, (builtTx) => {
+    b = yield* TxBuilder.mint({ redeemerDedupe: "update" })(nft, (builtTx) => {
       const seedInputPtr = builtTx.body.inputs
         .map((input) => input.ref)
         .indexOf(seedResolved.ref)
@@ -171,7 +190,7 @@ export const addWitness = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
     )(utxo.output.datum)
 
     b = TxBuilder.attachScript(contract)(b)
-    b = yield* TxBuilder.spend(
+    b = yield* TxBuilder.spend({ dedupe: "fail" })(
       utxo,
       buildUpdateRedeemer(vh, address, utxo.ref, inputWitnesses)
     )(b)
@@ -239,7 +258,7 @@ export const removeWitness = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
     )
 
     b = TxBuilder.attachScript(contract)(b)
-    b = yield* TxBuilder.spend(
+    b = yield* TxBuilder.spend({ dedupe: "fail" })(
       utxo,
       buildUpdateRedeemer(vh, address, utxo.ref, inputWitnesses)
     )(b)
@@ -289,13 +308,13 @@ export const mint = (assets: Assets.Assets) => (b: TxBuilder.TxBuilder) =>
 
     b = TxBuilder.attachScript(contract)(b)
 
-    b = yield* TxBuilder.refer(utxo)(b)
+    b = yield* TxBuilder.refer({ dedupe: "ignore" })(utxo)(b)
 
     const inputWitnesses = yield* Schema.decodeUnknown(WitnessesFromUplcData)(
       utxo.output.datum
     )
 
-    b = yield* TxBuilder.mint(
+    b = yield* TxBuilder.mint()(
       assets,
       buildWitnessRedeemer(vh, address, utxo.ref, inputWitnesses)
     )(b)
@@ -330,13 +349,13 @@ export const spend =
 
       b = TxBuilder.attachScript(contract)(b)
 
-      b = yield* TxBuilder.refer(stateUtxO)(b)
+      b = yield* TxBuilder.refer({ dedupe: "ignore" })(stateUtxO)(b)
 
       const inputWitnesses = yield* Schema.decodeUnknown(WitnessesFromUplcData)(
         stateUtxO.output.datum
       )
 
-      b = yield* TxBuilder.spend(
+      b = yield* TxBuilder.spend()(
         inputs,
         buildWitnessRedeemer(vh, address, stateUtxO.ref, inputWitnesses)
       )(b)

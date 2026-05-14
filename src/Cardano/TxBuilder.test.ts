@@ -24,7 +24,7 @@ describe("can balance Tx", () => {
 
     const program = Effect.gen(function* () {
       const tx: Ledger.Tx.Tx = yield* TxBuilder.start.pipe(
-        TxBuilder.spendEffect(seedUTxO),
+        TxBuilder.spendEffect({ dedupe: "fail" })(seedUTxO),
         TxBuilder.payEffect({
           address: addr,
           assets: {}
@@ -94,7 +94,7 @@ describe("can balance Tx", () => {
     const program = Effect.gen(function* () {
       const tx: Ledger.Tx.Tx = yield* TxBuilder.start.pipe(
         TxBuilder.attachScriptEffect(script),
-        TxBuilder.mintEffect(
+        TxBuilder.mintEffect({ redeemerDedupe: "fail" })(
           {
             [assetClass]: 1n
           },
@@ -111,9 +111,11 @@ describe("can balance Tx", () => {
 
       expect(tx.body.collateral.length).toBeGreaterThan(0)
       expect(tx.body.totalCollateral).toEqual(expectedCollateral)
-      expect(tx.body.collateral.every((utxo) =>
-        Ledger.Assets.containsOnlyAda(utxo.output.assets)
-      )).toBeTrue()
+      expect(
+        tx.body.collateral.every((utxo) =>
+          Ledger.Assets.containsOnlyAda(utxo.output.assets)
+        )
+      ).toBeTrue()
 
       if (tx.body.collateralReturn !== undefined) {
         expect(
