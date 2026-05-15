@@ -101,7 +101,7 @@ export class GetDatum extends Context.Tag("Cardano.TxBuilder.GetDatum")<
   GetDatum,
   (
     datumHash: DatumHash.DatumHash
-  ) => Effect.Effect<Uplc.Data.Data, DatumNotFound>
+  ) => Effect.Effect<Uplc.Data.Data, DatumNotFound | Network.ConnectionError>
 >() {}
 
 /**
