@@ -1290,6 +1290,8 @@ export const build =
       return tx
     }).pipe(Effect.provideService(CurrentTxBuilder, b))
 
+export const buildEffect = (options: BuildOptions = {}) => Effect.map(build(options))
+
 const buildMetadata = CurrentTxBuilder.pipe(
   Effect.map((b) => {
     if (b.metadata !== undefined) {
