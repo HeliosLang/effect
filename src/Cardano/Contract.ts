@@ -380,18 +380,7 @@ const buildUpdateRedeemer =
       throw new Error("state input not found in tx inputs")
     }
 
-    const witnessPtr = inputWitnesses.findIndex((w) => {
-      if (w._tag == "Signer") {
-        return tx.body.signers.includes(w.pkh)
-      } else {
-        return tx.body.withdrawals.some(([wk]) => wk == w.addr)
-      }
-    })
-
-    if (witnessPtr < 0) {
-      throw new Error("Tx not yet witnessed by a witness mentioned in contract")
-    }
-
+    const witnessPtr = findFirstWitness(tx, inputWitnesses)
     const inputWitness = inputWitnesses[witnessPtr]
 
     let signerPtr: number
@@ -454,18 +443,7 @@ const buildWitnessRedeemer =
       throw new Error("state ref input not found in tx inputs")
     }
 
-    const witnessPtr = inputWitnesses.findIndex((w) => {
-      if (w._tag == "Signer") {
-        return tx.body.signers.includes(w.pkh)
-      } else {
-        return tx.body.withdrawals.some(([wk]) => wk == w.addr)
-      }
-    })
-
-    if (witnessPtr < 0) {
-      throw new Error("Tx not yet witnessed by a witness mentioned in contract")
-    }
-
+    const witnessPtr = findFirstWitness(tx, inputWitnesses)
     const inputWitness = inputWitnesses[witnessPtr]
 
     let signerPtr: number
@@ -487,3 +465,19 @@ const buildWitnessRedeemer =
       Data.makeIntData(signerPtr)
     ])
   }
+
+const findFirstWitness = (tx: Tx.Tx, contractWitnesses: readonly Witness[]) => {
+  const witnessPtr = contractWitnesses.findIndex((w) => {
+    if (w._tag == "Signer") {
+      return tx.body.signers.includes(w.pkh)
+    } else {
+      return tx.body.withdrawals.some(([wk]) => wk == w.addr)
+    }
+  })
+
+  if (witnessPtr < 0) {
+    throw new Error(`Tx not yet witnessed by one of the witnesses mentioned in contract. Expected one of [${contractWitnesses.map(w => `${w._tag}:${w._tag == "Signer" ? w.pkh : w.addr}`).join(", ")}]. Got [${tx.body.signers.map(s => `Signer:${s}`).concat(tx.body.withdrawals.map(w => `Withdrawer:${w[0]}`)).join(", ")}]`)
+  }
+
+  return witnessPtr
+}
