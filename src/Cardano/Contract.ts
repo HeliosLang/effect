@@ -380,7 +380,7 @@ const buildUpdateRedeemer =
       throw new Error("state input not found in tx inputs")
     }
 
-    const witnessPtr = findFirstWitness(tx, inputWitnesses)
+    const witnessPtr = findFirstWitness(tx, inputWitnesses, contractAddress)
     const inputWitness = inputWitnesses[witnessPtr]
 
     let signerPtr: number
@@ -443,7 +443,7 @@ const buildWitnessRedeemer =
       throw new Error("state ref input not found in tx inputs")
     }
 
-    const witnessPtr = findFirstWitness(tx, inputWitnesses)
+    const witnessPtr = findFirstWitness(tx, inputWitnesses, contractAddress)
     const inputWitness = inputWitnesses[witnessPtr]
 
     let signerPtr: number
@@ -466,7 +466,7 @@ const buildWitnessRedeemer =
     ])
   }
 
-const findFirstWitness = (tx: Tx.Tx, contractWitnesses: readonly Witness[]) => {
+const findFirstWitness = (tx: Tx.Tx, contractWitnesses: readonly Witness[], contractAddress: Address.Address) => {
   const witnessPtr = contractWitnesses.findIndex((w) => {
     if (w._tag == "Signer") {
       return tx.body.signers.includes(w.pkh)
@@ -476,7 +476,7 @@ const findFirstWitness = (tx: Tx.Tx, contractWitnesses: readonly Witness[]) => {
   })
 
   if (witnessPtr < 0) {
-    throw new Error(`Tx not yet witnessed by one of the witnesses mentioned in contract. Expected one of [${contractWitnesses.map(w => `${w._tag}:${w._tag == "Signer" ? w.pkh : w.addr}`).join(", ")}]. Got [${tx.body.signers.map(s => `Signer:${s}`).concat(tx.body.withdrawals.map(w => `Withdrawer:${w[0]}`)).join(", ")}]`)
+    throw new Error(`Tx not yet witnessed by one of the witnesses mentioned in contract ${contractAddress}. Expected one of [${contractWitnesses.map(w => `${w._tag}:${w._tag == "Signer" ? w.pkh : w.addr}`).join(", ")}]. Got [${tx.body.signers.map(s => `Signer:${s}`).concat(tx.body.withdrawals.map(w => `Withdrawer:${w[0]}`)).join(", ")}]`)
   }
 
   return witnessPtr
