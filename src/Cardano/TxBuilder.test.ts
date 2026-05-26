@@ -8,6 +8,31 @@ import * as Wallet from "./Wallet.js"
 import { testParams } from "./Network/Params.js"
 
 describe("can balance Tx", () => {
+  it("sorts minted assets after minting", () => {
+    const scripts: Ledger.NativeScript.NativeScript[] = [
+      { type: "before", slot: 1 },
+      { type: "before", slot: 2 }
+    ]
+    const policies = scripts
+      .map(Ledger.NativeScript.hash)
+      .sort(Ledger.MintingPolicy.compare)
+    const reversePolicies = policies.slice().reverse()
+
+    const builder = Effect.runSync(
+      TxBuilder.start.pipe(
+        TxBuilder.attachScriptEffect(scripts[0]),
+        TxBuilder.attachScriptEffect(scripts[1]),
+        TxBuilder.mintEffect()({
+          [Ledger.AssetClass.make(reversePolicies[0], [1])]: 1n,
+          [Ledger.AssetClass.make(reversePolicies[1], [1])]: 1n
+        })
+      )
+    )
+
+    expect(Ledger.Assets.isSorted(builder.minted)).toBeTrue()
+    expect(Ledger.Assets.nonAdaPolicies(builder.minted)).toEqual(policies)
+  })
+
   it("ok", () => {
     const addr =
       "addr_test1vpvndky904g9whpnuae0ffsd37ysjjyu7m6avse3nqsfysqx3eg5h" as Ledger.Address.Address

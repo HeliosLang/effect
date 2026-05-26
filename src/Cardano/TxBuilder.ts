@@ -373,7 +373,9 @@ export const mint =
         // assign result before returning so that return type is TxBuilder
         b = {
           ...b,
-          minted: Assets.add(b.minted, Assets.filterByPolicy(policy)(assets))
+          minted: Assets.sort()(
+            Assets.add(b.minted, Assets.filterByPolicy(policy)(assets))
+          )
         }
 
         const hash = MintingPolicy.hash(policy)
@@ -1229,7 +1231,7 @@ export const build =
           withdrawals: b.withdrawals.map(
             (w) => [w.address, w.lovelace] as const
           ),
-          minted: b.minted,
+          minted: Assets.sort()(b.minted),
           refInputs: b.refInputs,
           totalCollateral: 0n,
           collateral: [],
