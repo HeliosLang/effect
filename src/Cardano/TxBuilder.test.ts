@@ -85,6 +85,71 @@ describe("can balance Tx", () => {
     Effect.runSync(p)
   })
 
+  it("fails with InsufficientBalancingAssets when balancing wallet cannot cover outputs", () => {
+    const addr =
+      "addr_test1vpvndky904g9whpnuae0ffsd37ysjjyu7m6avse3nqsfysqx3eg5h" as Ledger.Address.Address
+
+    const spareUTxO: Ledger.UTxO.UTxO = {
+      ref: "7c20a9ab7153e53d17a0b820b2d606b27257a1281d9365acc6d0d3cb8725ccc32" as Ledger.UTxORef.UTxORef,
+      output: {
+        address: addr,
+        assets: {
+          "": 1_000_000n
+        }
+      }
+    }
+
+    const program = TxBuilder.start.pipe(
+      TxBuilder.payEffect({
+        address: addr,
+        assets: {
+          "": 2_000_000n
+        }
+      }),
+      Effect.flatMap(TxBuilder.build()),
+      Effect.either
+    )
+
+    const result = Effect.runSync(
+      program.pipe(
+        Effect.provideService(Wallet.Balancing, {
+          changeAddress: Effect.succeed(addr),
+          utxos: Effect.succeed([spareUTxO]),
+          signTx: () =>
+            Effect.fail(new Error("signTx should not be called"))
+        }),
+        Effect.provideService(TxBuilder.GetDatum, (h) =>
+          Effect.fail(new TxBuilder.DatumNotFound(h))
+        ),
+        Effect.provideService(Network.IsMainnet, false),
+        Effect.provideService(Network.Params.params, testParams),
+        Effect.provideService(Network.UTxO, (ref) =>
+          ref == spareUTxO.ref
+            ? Effect.succeed(spareUTxO)
+            : Effect.fail(new Network.UTxONotFound(ref))
+        )
+      )
+    )
+
+    expect(result._tag).toBe("Left")
+
+    if (result._tag == "Right") {
+      throw new Error("Expected build to fail")
+    }
+
+    const error = result.left
+
+    expect(error).toBeInstanceOf(TxBuilder.InsufficientBalancingAssets)
+
+    if (!(error instanceof TxBuilder.InsufficientBalancingAssets)) {
+      throw new Error("Expected InsufficientBalancingAssets")
+    }
+
+    expect(error._tag).toBe("Cardano.TxBuilder.InsufficientBalancingAssets")
+    expect(error.required[""]).toBeGreaterThan(0n)
+    expect(error.available[""] ?? 0n).toBeLessThan(error.required[""] ?? 0n)
+  })
+
   it("auto-selects local collateral for smart txs", () => {
     const addr =
       "addr_test1vpvndky904g9whpnuae0ffsd37ysjjyu7m6avse3nqsfysqx3eg5h" as Ledger.Address.Address

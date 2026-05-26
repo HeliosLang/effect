@@ -97,6 +97,22 @@ export class CollateralNotAvailable extends Data.TaggedError(
   }
 }
 
+export class InsufficientBalancingAssets extends Data.TaggedError(
+  "Cardano.TxBuilder.InsufficientBalancingAssets"
+)<{
+  message: string
+  required: Assets.Assets
+  available: Assets.Assets
+}> {
+  constructor(required: Assets.Assets, available: Assets.Assets) {
+    super({
+      required,
+      available,
+      message: `Insufficient balancing assets: required ${Assets.pretty(required)}, available ${Assets.pretty(available)}`
+    })
+  }
+}
+
 export class GetDatum extends Context.Tag("Cardano.TxBuilder.GetDatum")<
   GetDatum,
   (
@@ -1388,7 +1404,19 @@ const convergeTx = (tx: Tx.Tx) =>
   Effect.gen(function* () {
     yield* Console.log(`Start loop`)
 
+    let previousFingerprint = ""
+
     while (tx.body.fee < (yield* Tx.minFee(tx))) {
+      const fingerprint = txFingerprint(tx)
+
+      if (fingerprint == previousFingerprint) {
+        return yield* Effect.fail(
+          new Error("TxBuilder balancing made no progress")
+        )
+      }
+
+      previousFingerprint = fingerprint
+
       yield* Console.log(`Updating fee`)
       tx = yield* updateFee(tx)
 
@@ -1443,6 +1471,13 @@ const collateralFingerprint = (tx: Tx.Tx) =>
     collateral: tx.body.collateral.map((utxo) => utxo.ref),
     totalCollateral: tx.body.totalCollateral.toString(),
     collateralReturn: tx.body.collateralReturn?.assets[""]?.toString()
+  })
+
+const txFingerprint = (tx: Tx.Tx) =>
+  JSON.stringify({
+    fee: tx.body.fee.toString(),
+    inputs: tx.body.inputs.map((utxo) => utxo.ref),
+    outputs: tx.body.outputs.map((output) => Assets.pretty(output.assets))
   })
 
 const applyCollateral = (tx: Tx.Tx) =>
@@ -1869,13 +1904,29 @@ const balanceTx = (tx: Tx.Tx) =>
     const selectAndAddInputs = (amount: Assets.Assets) =>
       Effect.gen(function* () {
         yield* Console.log("Selecting coins...")
-        const extraInputs = yield* selectCoinsForBalancing(
-          UTxO.difference(
-            spareUTxOs ?? [],
-            tx.body.inputs.concat(tx.body.refInputs)
-          ),
-          amount
+        const candidates = UTxO.difference(
+          spareUTxOs ?? [],
+          tx.body.inputs.concat(tx.body.refInputs)
         )
+        const available = UTxO.sumAssets(...candidates)
+
+        for (const [assetClass, required] of Object.entries(amount)) {
+          if ((available[assetClass] ?? 0n) < required) {
+            return yield* Effect.fail(
+              new InsufficientBalancingAssets(amount, available)
+            )
+          }
+        }
+
+        const selected = selectCoinsForBalancing(candidates, amount)
+
+        if (selected._tag == "Left") {
+          return yield* Effect.fail(
+            new InsufficientBalancingAssets(amount, available)
+          )
+        }
+
+        const extraInputs = selected.right
 
         net = Assets.add(net, UTxO.sumAssets(...extraInputs))
 
