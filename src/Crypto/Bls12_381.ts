@@ -295,8 +295,8 @@ class Fp2Field extends FieldHelper<Fp2> {
     return [F1.mod(ax), F1.multiply(ay, n % 2 == 0 ? 1n : P - 1n)]
   }
 
-  multiplyu2(a: Fp2): Fp2 {
-    return this.scale(a, -1n)
+  multiplyFp6Nonresidue(a: Fp2): Fp2 {
+    return this.multiply(a, [1n, 1n])
   }
 
   square2(a: Fp2, b: Fp2): [Fp2, Fp2] {
@@ -304,7 +304,7 @@ class Fp2Field extends FieldHelper<Fp2> {
     const b2 = this.square(b)
 
     return [
-      this.add(a2, this.multiplyu2(b2)),
+      this.add(a2, this.multiplyFp6Nonresidue(b2)),
       this.subtract(this.square(this.add(a, b)), this.add(a2, b2))
     ]
   }
@@ -437,8 +437,10 @@ class CubicField<T> implements Field<[T, T, T]> {
     const f = this.F.subtract(this.F.square(b), this.F.multiply(a, c))
     const den = this.F.add(
       this.F.multiply(a, d),
-      this.F.multiply(b, f),
-      this.F.multiply(c, e)
+      this.F.multiply(
+        this.F.add(this.F.multiply(b, f), this.F.multiply(c, e)),
+        this.V3
+      )
     )
     const denI = this.F.invert(den)
 
@@ -1203,23 +1205,44 @@ export function g2HashToGroup(msg: Uint8Array, dst: Uint8Array): G2 {
 
 type Fp6Line = Fp6
 
-function precomputeG2({ x: bx, y: by }: Affine<Fp2>): Fp6Line[] {
+function nafDecomposition(a: bigint): number[] {
+  const res: number[] = []
+
+  for (; a > 1n; a >>= 1n) {
+    if ((a & 1n) == 0n) {
+      res.unshift(0)
+    } else if ((a & 3n) == 3n) {
+      res.unshift(-1)
+      a += 1n
+    } else {
+      res.unshift(1)
+    }
+  }
+
+  return res
+}
+
+const ATE_NAF = nafDecomposition(X)
+
+function precomputeG2({ x: bx, y: by }: Affine<Fp2>): Fp6Line[][] {
   const qx = bx
   const qy = by
+  const negQy = F2.negate(qy)
   const qz = F2.ONE
   let rx = qx
   let ry = qy
   let rz = qz
-  const res: Fp6Line[] = []
+  const res: Fp6Line[][] = []
 
-  for (let i = 62; i >= 0; i--) {
+  for (const bit of ATE_NAF) {
+    const lines: Fp6Line[] = []
     let t0 = F2.square(ry)
     let t1 = F2.square(rz)
     let t2 = F2.multiply(F2.scale(t1, 3n), G2_B)
     let t3 = F2.scale(t2, 3n)
     let t4 = F2.subtract(F2.square(F2.add(ry, rz)), F2.add(t1, t0))
 
-    res.push([
+    lines.push([
       F2.subtract(t2, t0),
       F2.scale(F2.square(rx), 3n),
       F2.negate(t4)
@@ -1232,12 +1255,13 @@ function precomputeG2({ x: bx, y: by }: Affine<Fp2>): Fp6Line[] {
     )
     rz = F2.multiply(t0, t4)
 
-    if (((X >> BigInt(i)) & 1n) == 1n) {
-      t0 = F2.subtract(ry, F2.multiply(qy, rz))
+    if (bit !== 0) {
+      const addQy = bit === -1 ? negQy : qy
+      t0 = F2.subtract(ry, F2.multiply(addQy, rz))
       t1 = F2.subtract(rx, F2.multiply(qx, rz))
 
-      res.push([
-        F2.subtract(F2.multiply(t0, qx), F2.multiply(t1, qy)),
+      lines.push([
+        F2.subtract(F2.multiply(t0, qx), F2.multiply(t1, addQy)),
         F2.negate(t0),
         t1
       ])
@@ -1256,34 +1280,23 @@ function precomputeG2({ x: bx, y: by }: Affine<Fp2>): Fp6Line[] {
       )
       rz = F2.multiply(rz, t3)
     }
+
+    res.push(lines)
   }
 
   return res
 }
 
-function millerLoopInternal({ x: ax, y: ay }: Affine<bigint>, bs: Fp6Line[]): Fp12 {
+function millerLoopInternal({ x: ax, y: ay }: Affine<bigint>, bs: Fp6Line[][]): Fp12 {
   let res = F12.ONE
 
-  for (let j = 0, i = 62; i >= 0; i--, j++) {
-    const e = bs[j]
-
-    res = F12.multiply(res, [
-      [e[0], F2.scale(e[1], ax), [0n, 0n]],
-      [[0n, 0n], F2.scale(e[2], ay), [0n, 0n]]
-    ])
-
-    if (((X >> BigInt(i)) & 1n) == 1n) {
-      j += 1
-      const f = bs[j]
-
+  for (const lines of bs) {
+    res = F12.square(res)
+    for (const f of lines) {
       res = F12.multiply(res, [
         [f[0], F2.scale(f[1], ax), [0n, 0n]],
         [[0n, 0n], F2.scale(f[2], ay), [0n, 0n]]
       ])
-    }
-
-    if (i !== 0) {
-      res = F12.square(res)
     }
   }
 
@@ -1311,7 +1324,7 @@ function cyclotomicSquare([ax, ay]: Fp12): Fp12 {
   const [t3, t4] = F2.square2(c0c0, c1c1)
   const [t5, t6] = F2.square2(c1c0, c0c2)
   const [t7, t8] = F2.square2(c0c1, c1c2)
-  const t9 = F2.multiplyu2(t8)
+  const t9 = F2.multiplyFp6Nonresidue(t8)
 
   return [
     [
