@@ -1,6 +1,7 @@
 export * as Bip32 from "./Bip32.js"
 export * as Bip39 from "./Bip39.js"
 export * as Blake2b from "./Blake2b.js"
+export * as Bls12_381 from "./Bls12_381.js"
 export * as Curve from "./Curve.js"
 export * as Ed25519 from "./Ed25519.js"
 export * as EdDSA from "./EdDSA.js"

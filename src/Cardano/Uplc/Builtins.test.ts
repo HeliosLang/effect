@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test"
 import { Either } from "effect"
+import * as Bytes from "../../Codecs/Bytes.js"
+import * as Bls12_381 from "../../Crypto/Bls12_381.js"
 import * as Builtins from "./Builtins.js"
+import * as Value from "./Value.js"
 
 describe("Uplc.Builtins.evalDivide()", () => {
   const testVector: { a: bigint; b: bigint; c: bigint }[] = [
@@ -258,5 +261,72 @@ describe("Uplc.Builtins.evalRemainder()", () => {
 
       expect(actual).toBe(expected)
     })
+  })
+})
+
+describe("Uplc.Builtins BLS12-381 V3", () => {
+  const g1 = Either.getOrThrow(
+    Bls12_381.decodeG1(
+      Bytes.toUint8Array(
+        "950dfd33da2682260c76038dfb8bad6e84ae9d599a3c151815945ac1e6ef6b1027cd917f3907479d20d636ce437a41f5"
+      )
+    )
+  )
+  const g2 = Either.getOrThrow(
+    Bls12_381.decodeG2(
+      Bytes.toUint8Array(
+        "b0629fa1158c2d23a10413fe91d381a84d25e31d041cd0377d25828498fd02011b35893938ced97535395e4815201e67108bcd4665e0db25d602d76fa791fab706c54abf5e1a9e44b4ac1e6badf3d2ac0328f5e30be341677c8bac5dda7682f1"
+      )
+    )
+  )
+
+  it("copies conformance: bls12_381_G1_compress/compress", () => {
+    const result = Either.getOrThrow(
+      Builtins.V3[59].call(
+        [{ _tag: "Const", value: { g1Element: Value.g1ToTuple(g1) } }],
+        {} as never
+      )
+    )
+
+    expect(result).toEqual({
+      _tag: "Const",
+      value: Bytes.toUint8Array(
+        "950dfd33da2682260c76038dfb8bad6e84ae9d599a3c151815945ac1e6ef6b1027cd917f3907479d20d636ce437a41f5"
+      )
+    })
+  })
+
+  it("copies conformance: bls12_381_G1_uncompress/off-curve", () => {
+    const result = Builtins.V3[60].call(
+      [
+        {
+          _tag: "Const",
+          value: Bytes.toUint8Array(
+            "a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003"
+          )
+        }
+      ],
+      {} as never
+    )
+
+    expect(result._tag).toBe("Left")
+  })
+
+  it("copies conformance: bls12_381_millerLoop/equal-pairing", () => {
+    const ml = Either.getOrThrow(
+      Builtins.V3[68].call(
+        [
+          { _tag: "Const", value: { g1Element: Value.g1ToTuple(g1) } },
+          { _tag: "Const", value: { g2Element: Value.g2ToTuple(g2) } }
+        ],
+        {} as never
+      )
+    )
+
+    const verified = Either.getOrThrow(
+      Builtins.V3[70].call([ml, ml], {} as never)
+    )
+
+    expect(verified).toEqual({ _tag: "Const", value: true })
   })
 })

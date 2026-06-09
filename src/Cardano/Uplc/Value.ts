@@ -1,7 +1,9 @@
 import { Either, Encoding, Schema } from "effect"
+import * as BigEndian from "../../Codecs/BigEndian.js"
 import * as Bits from "../../Codecs/Bits.js"
 import { toArray, toUint8Array } from "../../Codecs/Bytes.js"
 import * as Flat from "../../Codecs/Flat.js"
+import * as Bls12_381 from "../../Crypto/Bls12_381.js"
 import * as Utf8 from "../../Codecs/Utf8.js"
 import * as ZigZag from "../../Codecs/ZigZag.js"
 import * as Data from "./Data.js"
@@ -164,6 +166,12 @@ export function flatSize(v: Value): number {
       nItemTypeBits +
       v.items.reduce((prev, item) => flatSize(item) - nItemTypeBits + prev, 0)
     )
+  } else if ("g1Element" in v) {
+    return Flat.bytesSize(48)
+  } else if ("g2Element" in v) {
+    return Flat.bytesSize(96)
+  } else if ("mlResult" in v) {
+    return Flat.bytesSize(576)
   } else {
     throw new Error(
       `unhandled value kind in Uplc.Value.flatSize() (got: ${v as unknown as any})`
@@ -186,6 +194,12 @@ export function memSize(v: Value): number {
     return memSize(v.first) + memSize(v.second)
   } else if ("items" in v) {
     return v.items.reduce((prev, item) => prev + memSize(item), 0)
+  } else if ("g1Element" in v) {
+    return 18
+  } else if ("g2Element" in v) {
+    return 36
+  } else if ("mlResult" in v) {
+    return 72
   } else {
     throw new Error(
       `unhandled value kind in Uplc.Value.memSize() (got: ${v as unknown as any})`
@@ -225,6 +239,12 @@ export const toFlat =
       })
 
       w.writeListNil()
+    } else if ("g1Element" in v) {
+      w.writeBytes(toArray(Bls12_381.encodeG1(tupleToG1(v.g1Element))))
+    } else if ("g2Element" in v) {
+      w.writeBytes(toArray(Bls12_381.encodeG2(tupleToG2(v.g2Element))))
+    } else if ("mlResult" in v) {
+      w.writeBytes(encodeMlResult(v.mlResult))
     } else {
       throw new Error(
         `unhandled value kind in Uplc.Value.toFlat() (got: ${v as unknown as any})`
@@ -320,17 +340,19 @@ const makeTypedDecoder = (
             Either.mapLeft((e) => new Error(e.message))
           )
       case 9:
-        return yield* Either.left(
-          new Error("Bls12_381_G1Element can't be deserialized")
-        )
+        return () =>
+          Bls12_381.decodeG1(toUint8Array(r.readBytes())).pipe(
+            Either.map((p) => ({ g1Element: g1ToTuple(p) })),
+            Either.mapLeft((e) => new Error(e.message))
+          )
       case 10:
-        return yield* Either.left(
-          new Error("Bls12_381_G2Element can't be deserialized")
-        )
+        return () =>
+          Bls12_381.decodeG2(toUint8Array(r.readBytes())).pipe(
+            Either.map((p) => ({ g2Element: g2ToTuple(p) })),
+            Either.mapLeft((e) => new Error(e.message))
+          )
       case 11:
-        return yield* Either.left(
-          new Error("Bls12_381_MlResult can't be deserialized")
-        )
+        return () => decodeMlResult(r.readBytes())
       default:
         return yield* Either.left(
           new Error(`unhandled value type ${type.toString()}`)
@@ -417,6 +439,16 @@ export function toString(v: Value): string {
     } else {
       return `[${v.items.map(toString).join(", ")}]`
     }
+  } else if ("g1Element" in v) {
+    return `0x${Encoding.encodeHex(
+      Bls12_381.encodeG1(tupleToG1(v.g1Element))
+    )}`
+  } else if ("g2Element" in v) {
+    return `0x${Encoding.encodeHex(
+      Bls12_381.encodeG2(tupleToG2(v.g2Element))
+    )}`
+  } else if ("mlResult" in v) {
+    return `0x${Encoding.encodeHex(toUint8Array(encodeMlResult(v.mlResult)))}`
   } else {
     throw new Error(
       `unhandled value kind in Uplc.Value.toString() (got: ${v as unknown as any})`
@@ -441,6 +473,12 @@ export function toType(v: Value): Type.Type {
     return Type.Pair(toType(v.first), toType(v.second))
   } else if ("items" in v) {
     return Type.List(v.itemType)
+  } else if ("g1Element" in v) {
+    return Type.Bls12_381_G1Element
+  } else if ("g2Element" in v) {
+    return Type.Bls12_381_G2Element
+  } else if ("mlResult" in v) {
+    return Type.Bls12_381_MlResult
   } else {
     throw new Error(
       `unhandled value kind in Uplc.Value.toType() (got: ${v as unknown as any})`
@@ -450,4 +488,89 @@ export function toType(v: Value): Type.Type {
 
 export function describeType(v: Value): string {
   return Type.toString(toType(v))
+}
+
+export function g1ToTuple(p: Bls12_381.G1): Bls12_381_G1Element["g1Element"] {
+  return [p.x, p.y, p.z]
+}
+
+export function tupleToG1([x, y, z]: Bls12_381_G1Element["g1Element"]): Bls12_381.G1 {
+  return { x, y, z }
+}
+
+export function g2ToTuple(p: Bls12_381.G2): Bls12_381_G2Element["g2Element"] {
+  return [p.x, p.y, p.z]
+}
+
+export function tupleToG2([x, y, z]: Bls12_381_G2Element["g2Element"]): Bls12_381.G2 {
+  return { x: [x[0], x[1]], y: [y[0], y[1]], z: [z[0], z[1]] }
+}
+
+function encodeFp48(x: bigint): number[] {
+  const bytes = BigEndian.encode(x)
+
+  while (bytes.length < 48) {
+    bytes.unshift(0)
+  }
+
+  if (bytes.length != 48) {
+    throw new Error("BLS field element doesn't fit in 48 bytes")
+  }
+
+  return bytes
+}
+
+function decodeFp48(bytes: number[]): Either.Either<bigint, Error> {
+  return BigEndian.decode(bytes).pipe(Either.mapLeft((e) => new Error(e.message)))
+}
+
+function encodeFp2([x, y]: readonly [bigint, bigint]): number[] {
+  return encodeFp48(x).concat(encodeFp48(y))
+}
+
+function encodeMlResult(mlResult: Bls12_381_MlResult["mlResult"]): number[] {
+  const bytes: number[] = []
+
+  for (const fp6 of mlResult) {
+    for (const fp2 of fp6) {
+      bytes.push(...encodeFp2(fp2))
+    }
+  }
+
+  return bytes
+}
+
+function decodeMlResult(
+  bytes: number[]
+): Either.Either<Bls12_381_MlResult, Error> {
+  if (bytes.length != 576) {
+    return Either.left(new Error(`expected 576 bytes for bls12_381_mlresult`))
+  }
+
+  let offset = 0
+  const readFp2 = (): Either.Either<[bigint, bigint], Error> => {
+    const x = decodeFp48(bytes.slice(offset, offset + 48))
+    offset += 48
+    const y = decodeFp48(bytes.slice(offset, offset + 48))
+    offset += 48
+
+    return Either.zipWith(x, y, (x, y) => [x, y])
+  }
+
+  return Either.gen(function* () {
+    return {
+      mlResult: [
+        [
+          yield* readFp2(),
+          yield* readFp2(),
+          yield* readFp2()
+        ],
+        [
+          yield* readFp2(),
+          yield* readFp2(),
+          yield* readFp2()
+        ]
+      ]
+    }
+  })
 }

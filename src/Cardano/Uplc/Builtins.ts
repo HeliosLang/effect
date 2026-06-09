@@ -77,38 +77,9 @@ export const addIntegerV1: Builtin = {
   cpuModel: Cost.Linear(0, 1)(Cost.Max),
   memModel: Cost.Linear(2, 3)(Cost.Max),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in addInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in addInteger")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value + b.value
-    })
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: a + b }))
+    )
   }
 }
 
@@ -119,38 +90,9 @@ export const subtractIntegerV1: Builtin = {
   cpuModel: Cost.Linear(145, 146)(Cost.Max),
   memModel: Cost.Linear(147, 148)(Cost.Max),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in subtractInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in subtractInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value - b.value
-    })
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: a - b }))
+    )
   }
 }
 
@@ -173,38 +115,9 @@ export const multiplyIntegerV1: Builtin = {
   cpuModel: Cost.Linear(115, 116)(Cost.Sum),
   memModel: Cost.Linear(117, 118)(Cost.Sum),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in multiplyInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in multiplyInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value * b.value
-    })
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: a * b }))
+    )
   }
 }
 
@@ -227,36 +140,9 @@ export const divideIntegerV1: Builtin = {
   cpuModel: Cost.ConstantBelowDiag(49)(Cost.Linear(50, 51)(Cost.Prod)),
   memModel: Cost.AtLeast(53)(Cost.Diff),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in divideInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in divideInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return evalDivide(a.value, b.value).pipe(
-      Either.map((result) => ({ _tag: "Const", value: result }))
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.flatMap(([a, b]) => evalDivide(a, b)),
+      Either.map((value) => ({ _tag: "Const", value }))
     )
   }
 }
@@ -290,36 +176,9 @@ export const quotientIntegerV1: Builtin = {
   cpuModel: Cost.ConstantBelowDiag(121)(Cost.Linear(122, 123)(Cost.Prod)),
   memModel: Cost.AtLeast(125)(Cost.Diff),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in quotientInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in quotientInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return evalQuotient(a.value, b.value).pipe(
-      Either.map((result) => ({ _tag: "Const", value: result }))
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.flatMap(([a, b]) => evalQuotient(a, b)),
+      Either.map((value) => ({ _tag: "Const", value }))
     )
   }
 }
@@ -359,36 +218,9 @@ export const remainderIntegerV1: Builtin = {
   cpuModel: Cost.ConstantBelowDiag(127)(Cost.Linear(128, 129)(Cost.Prod)),
   memModel: Cost.AtLeast(131)(Cost.Diff),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in remainderInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in remainderInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return evalRemainder(a.value, b.value).pipe(
-      Either.map((result) => ({ _tag: "Const", value: result }))
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.flatMap(([a, b]) => evalRemainder(a, b)),
+      Either.map((value) => ({ _tag: "Const", value }))
     )
   }
 }
@@ -428,36 +260,9 @@ export const modIntegerV1: Builtin = {
   cpuModel: Cost.ConstantBelowDiag(109)(Cost.Linear(110, 111)(Cost.Prod)),
   memModel: Cost.AtLeast(113)(Cost.Diff),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in modInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in modInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return evalMod(a.value, b.value).pipe(
-      Either.map((result) => ({ _tag: "Const", value: result }))
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.flatMap(([a, b]) => evalMod(a, b)),
+      Either.map((value) => ({ _tag: "Const", value }))
     )
   }
 }
@@ -505,38 +310,9 @@ export const equalsIntegerV1: Builtin = {
   cpuModel: Cost.Linear(66, 67)(Cost.Min),
   memModel: Cost.Constant(68),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in equalsInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in equalsInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value === b.value
-    })
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: a === b }))
+    )
   }
 }
 
@@ -553,38 +329,9 @@ export const lessThanIntegerV1: Builtin = {
   cpuModel: Cost.Linear(94, 95)(Cost.Min),
   memModel: Cost.Constant(96),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in lessThanInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in lessThanInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value < b.value
-    })
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: a < b }))
+    )
   }
 }
 
@@ -601,38 +348,9 @@ export const lessThanEqualsIntegerV1: Builtin = {
   cpuModel: Cost.Linear(91, 92)(Cost.Min),
   memModel: Cost.Constant(93),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in lessThanEqualsInteger()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in lessThanEqualsInteger()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value <= b.value
-    })
+    return Either.all([expectInteger(a, 0), expectInteger(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: a <= b }))
+    )
   }
 }
 
@@ -649,38 +367,9 @@ export const appendByteStringV1: Builtin = {
   cpuModel: Cost.Linear(4, 5)(Cost.Sum),
   memModel: Cost.Linear(6, 7)(Cost.Sum),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in appendByteString()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in appendByteString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (!(b.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(1, "bytes", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Bytes.concat(a.value, b.value)
-    })
+    return Either.all([expectBytes(a, 0), expectBytes(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: Bytes.concat(a, b) }))
+    )
   }
 }
 
@@ -691,38 +380,12 @@ export const consByteStringV1: Builtin = {
   cpuModel: Cost.Linear(39, 40)(Cost.Second),
   memModel: Cost.Linear(41, 42)(Cost.Sum),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in consByteString()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in consByteString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (!(b.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(1, "bytes", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Bytes.concat([Number(a.value % 256n)], b.value)
-    })
+    return Either.all([expectInteger(a, 0), expectBytes(b, 1)]).pipe(
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: Bytes.concat([Number(a % 256n)], b)
+      }))
+    )
   }
 }
 
@@ -733,58 +396,19 @@ export const sliceByteStringV1: Builtin = {
   cpuModel: Cost.Linear(139, 140)(Cost.Third),
   memModel: Cost.Linear(141, 142)(Cost.Third),
   call: ([a, b, c]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in sliceByteString()")
-    }
+    return Either.all([
+      expectInteger(a, 0),
+      expectInteger(b, 1),
+      expectBytes(c, 2)
+    ]).pipe(
+      Either.map(([a, b, bytes]) => {
+        const start = Math.max(Number(a), 0)
+        const end = Math.min(start + Number(b) - 1, bytes.length - 1)
+        const value = end < start ? new Uint8Array([]) : bytes.slice(start, end + 1)
 
-    if (b === undefined) {
-      throw new Error("b is undefined in sliceByteString()")
-    }
-
-    if (c === undefined) {
-      throw new Error("c is undefined in sliceByteString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    if (c._tag != "Const") {
-      return Either.left(new WrongArgType(2, "Const", c._tag))
-    }
-
-    if (!(c.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(2, "bytes", Value.describeType(c.value))
-      )
-    }
-
-    const bytes = c.value
-    const start = Math.max(Number(a.value), 0)
-    const end = Math.min(start + Number(b.value) - 1, bytes.length - 1)
-
-    const res = end < start ? new Uint8Array([]) : bytes.slice(start, end + 1)
-
-    return Either.right({
-      _tag: "Const",
-      value: res
-    })
+        return { _tag: "Const", value }
+      })
+    )
   }
 }
 
@@ -807,24 +431,9 @@ export const lengthOfByteStringV1: Builtin = {
   cpuModel: Cost.Constant(83),
   memModel: Cost.Constant(84),
   call: ([a]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in lengthOfByteString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: BigInt(a.value.length)
-    })
+    return expectBytes(a, 0).pipe(
+      Either.map((a) => ({ _tag: "Const", value: BigInt(a.length) }))
+    )
   }
 }
 
@@ -841,45 +450,15 @@ export const indexByteStringV1: Builtin = {
   cpuModel: Cost.Constant(81),
   memModel: Cost.Constant(82),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in indexByteString()")
-    }
+    return Either.all([expectBytes(a, 0), expectInteger(b, 1)]).pipe(
+      Either.flatMap(([bytes, b]) => {
+        const i = Number(b)
 
-    if (b === undefined) {
-      throw new Error("b is undefined in indexByteString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "bigint") {
-      return Either.left(
-        new WrongArgType(1, "integer", Value.describeType(b.value))
-      )
-    }
-
-    const bytes = a.value
-    const i = Number(b.value)
-
-    if (i < 0 || i >= bytes.length) {
-      return Either.left(new OutOfRange(bytes.length, i))
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: BigInt(bytes[i])
-    })
+        return i < 0 || i >= bytes.length
+          ? Either.left(new OutOfRange(bytes.length, i))
+          : Either.right({ _tag: "Const", value: BigInt(bytes[i]) })
+      })
+    )
   }
 }
 
@@ -896,38 +475,9 @@ export const equalsByteStringV1: Builtin = {
   cpuModel: Cost.ConstantOffDiag(59)(Cost.Linear(60, 61)(Cost.First)),
   memModel: Cost.Constant(62),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in equalsByteString()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in equalsByteString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (!(b.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(1, "bytes", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Bytes.equals(a.value, b.value)
-    })
+    return Either.all([expectBytes(a, 0), expectBytes(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: Bytes.equals(a, b) }))
+    )
   }
 }
 
@@ -944,38 +494,9 @@ export const lessThanByteStringV1: Builtin = {
   cpuModel: Cost.Linear(85, 86)(Cost.Min),
   memModel: Cost.Constant(87),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in lessThanByteString()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in lessThanByteString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (!(b.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(1, "bytes", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Bytes.compare(a.value, b.value) == -1
-    })
+    return Either.all([expectBytes(a, 0), expectBytes(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: Bytes.compare(a, b) == -1 }))
+    )
   }
 }
 
@@ -992,38 +513,9 @@ export const lessThanEqualsByteStringV1: Builtin = {
   cpuModel: Cost.Linear(88, 89)(Cost.Min),
   memModel: Cost.Constant(90),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in lessThanEqualsByteString()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in lessThanEqualsByteString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (!(b.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(1, "bytes", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Bytes.compare(a.value, b.value) <= 0
-    })
+    return Either.all([expectBytes(a, 0), expectBytes(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: Bytes.compare(a, b) <= 0 }))
+    )
   }
 }
 
@@ -1040,24 +532,9 @@ export const sha2_256V1: Builtin = {
   cpuModel: Cost.Linear(133, 134)(Cost.First),
   memModel: Cost.Constant(135),
   call: ([a]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in sha2_256()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Crypto.Sha2_256.hashSync(a.value)
-    })
+    return expectBytes(a, 0).pipe(
+      Either.map((a) => ({ _tag: "Const", value: Crypto.Sha2_256.hashSync(a) }))
+    )
   }
 }
 
@@ -1080,24 +557,9 @@ export const sha3_256V1: Builtin = {
   cpuModel: Cost.Linear(136, 137)(Cost.First),
   memModel: Cost.Constant(138),
   call: ([a]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in sha3_256()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Crypto.Sha3_256.hashSync(a.value)
-    })
+    return expectBytes(a, 0).pipe(
+      Either.map((a) => ({ _tag: "Const", value: Crypto.Sha3_256.hashSync(a) }))
+    )
   }
 }
 
@@ -1120,24 +582,9 @@ export const blake2b_256V1: Builtin = {
   cpuModel: Cost.Linear(14, 15)(Cost.First),
   memModel: Cost.Constant(16),
   call: ([a]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in blake2b_256()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Crypto.Blake2b.hashSync(a.value)
-    })
+    return expectBytes(a, 0).pipe(
+      Either.map((a) => ({ _tag: "Const", value: Crypto.Blake2b.hashSync(a) }))
+    )
   }
 }
 
@@ -1148,78 +595,35 @@ export const verifyEd25519SignatureV1: Builtin = {
   cpuModel: Cost.Linear(163, 164)(Cost.Third),
   memModel: Cost.Constant(165),
   call: ([pk, message, signature]: CekValue[]) => {
-    if (pk === undefined) {
-      throw new Error("pk is undefined in verifyEd25519Signature()")
-    }
+    return Either.all([
+      expectBytes(pk, 0),
+      expectBytes(message, 1),
+      expectBytes(signature, 2)
+    ]).pipe(
+      Either.flatMap(([pk, message, signature]) => {
+        if (pk.length != 32) {
+          return Either.left(
+            new InvalidLength("verifyEd25519Signature", "publicKey", 32, pk.length)
+          )
+        }
 
-    if (message === undefined) {
-      throw new Error("message is undefined in verifyEd25519Signature()")
-    }
+        if (signature.length != 64) {
+          return Either.left(
+            new InvalidLength(
+              "verifyEd25519Signature",
+              "signature",
+              64,
+              signature.length
+            )
+          )
+        }
 
-    if (signature === undefined) {
-      throw new Error("signature is undefined in verifyEd25519Signature()")
-    }
-
-    if (pk._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", pk._tag))
-    }
-
-    if (!(pk.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(pk.value))
-      )
-    }
-
-    if (pk.value.length != 32) {
-      return Either.left(
-        new InvalidLength(
-          "verifyEd25519Signature",
-          "publicKey",
-          32,
-          pk.value.length
-        )
-      )
-    }
-
-    if (message._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", message._tag))
-    }
-
-    if (!(message.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(1, "bytes", Value.describeType(message.value))
-      )
-    }
-
-    if (signature._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", signature._tag))
-    }
-
-    if (!(signature.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(1, "bytes", Value.describeType(signature.value))
-      )
-    }
-
-    if (signature.value.length != 64) {
-      return Either.left(
-        new InvalidLength(
-          "verifyEd25519Signature",
-          "signature",
-          64,
-          pk.value.length
-        )
-      )
-    }
-
-    // length has been validated above
-    const b = Either.getOrThrow(
-      Crypto.Ed25519.verify(signature.value, message.value, pk.value)
+        return Either.right({
+          _tag: "Const",
+          value: Either.getOrThrow(Crypto.Ed25519.verify(signature, message, pk))
+        })
+      })
     )
-    return Either.right({
-      _tag: "Const",
-      value: b
-    })
   }
 }
 
@@ -1242,38 +646,9 @@ export const appendStringV1: Builtin = {
   cpuModel: Cost.Linear(8, 9)(Cost.Sum),
   memModel: Cost.Linear(10, 11)(Cost.Sum),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in appendString()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in appendString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "string") {
-      return Either.left(
-        new WrongArgType(0, "string", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "string") {
-      return Either.left(
-        new WrongArgType(1, "string", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value + b.value
-    })
+    return Either.all([expectString(a, 0), expectString(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: a + b }))
+    )
   }
 }
 
@@ -1284,38 +659,9 @@ export const equalsStringV1: Builtin = {
   cpuModel: Cost.ConstantOffDiag(69)(Cost.Linear(70, 71)(Cost.First)),
   memModel: Cost.Constant(72),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in equalsString()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in equalsString()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "string") {
-      return Either.left(
-        new WrongArgType(0, "string", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", b._tag))
-    }
-
-    if (typeof b.value != "string") {
-      return Either.left(
-        new WrongArgType(1, "string", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value === b.value
-    })
+    return Either.all([expectString(a, 0), expectString(b, 1)]).pipe(
+      Either.map(([a, b]) => ({ _tag: "Const", value: a === b }))
+    )
   }
 }
 
@@ -1332,24 +678,9 @@ export const encodeUtf8V1: Builtin = {
   cpuModel: Cost.Linear(55, 56)(Cost.First),
   memModel: Cost.Linear(57, 58)(Cost.First),
   call: ([a]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in encodeUtf8()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (typeof a.value != "string") {
-      return Either.left(
-        new WrongArgType(0, "string", Value.describeType(a.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Utf8.encode(a.value)
-    })
+    return expectString(a, 0).pipe(
+      Either.map((a) => ({ _tag: "Const", value: Utf8.encode(a) }))
+    )
   }
 }
 
@@ -1366,21 +697,8 @@ export const decodeUtf8V1: Builtin = {
   cpuModel: Cost.Linear(45, 46)(Cost.First),
   memModel: Cost.Linear(47, 48)(Cost.First),
   call: ([a]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in decodeUtf8()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!(a.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(a.value))
-      )
-    }
-
-    return Utf8.decode(a.value).pipe(
+    return expectBytes(a, 0).pipe(
+      Either.flatMap((a) => Utf8.decode(a)),
       Either.map((s) => ({ _tag: "Const", value: s }))
     )
   }
@@ -1393,10 +711,6 @@ export const ifThenElseV1: Builtin = {
   cpuModel: Cost.Constant(79),
   memModel: Cost.Constant(80),
   call: ([cond, a, b]: CekValue[]) => {
-    if (cond === undefined) {
-      throw new Error("cond is undefined in ifThenElse()")
-    }
-
     if (a === undefined) {
       throw new Error("a is undefined in ifThenElse()")
     }
@@ -1405,17 +719,7 @@ export const ifThenElseV1: Builtin = {
       throw new Error("b is undefined in ifThenElse()")
     }
 
-    if (cond._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", cond._tag))
-    }
-
-    if (typeof cond.value != "boolean") {
-      return Either.left(
-        new WrongArgType(0, "bool", Value.describeType(cond.value))
-      )
-    }
-
-    return Either.right(cond.value ? a : b)
+    return expectBool(cond, 0).pipe(Either.map((cond) => (cond ? a : b)))
   }
 }
 
@@ -1432,25 +736,11 @@ export const chooseUnitV1: Builtin = {
   cpuModel: Cost.Constant(37),
   memModel: Cost.Constant(38),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in chooseUnit()")
-    }
-
     if (b === undefined) {
       throw new Error("b is undefined in chooseUnit()")
     }
 
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (a.value !== null) {
-      return Either.left(
-        new WrongArgType(0, "unit", Value.describeType(a.value))
-      )
-    }
-
-    return Either.right(b)
+    return expectUnit(a, 0).pipe(Either.map(() => b))
   }
 }
 
@@ -1461,27 +751,16 @@ export const traceV1: Builtin = {
   cpuModel: Cost.Constant(151),
   memModel: Cost.Constant(152),
   call: ([message, after]: CekValue[], ctx: MachineContext) => {
-    if (message === undefined) {
-      throw new Error("message is undefined in trace()")
-    }
-
     if (after === undefined) {
       throw new Error("after is undefined in trace()")
     }
 
-    if (message._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", message._tag))
-    }
-
-    if (typeof message.value != "string") {
-      return Either.left(
-        new WrongArgType(0, "string", Value.describeType(message.value))
-      )
-    }
-
-    ctx.print(message.value)
-
-    return Either.right(after)
+    return expectString(message, 0).pipe(
+      Either.map((message) => {
+        ctx.print(message)
+        return after
+      })
+    )
   }
 }
 
@@ -1504,26 +783,9 @@ export const fstPairV1: Builtin = {
   cpuModel: Cost.Constant(73),
   memModel: Cost.Constant(74),
   call: ([a]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in fstPair()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (
-      !(typeof a.value == "object" && a.value != null && "first" in a.value)
-    ) {
-      return Either.left(
-        new WrongArgType(0, "pair", Value.describeType(a.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value.first
-    })
+    return expectPair(a, 0).pipe(
+      Either.map((a) => ({ _tag: "Const", value: a.first }))
+    )
   }
 }
 
@@ -1540,26 +802,9 @@ export const sndPairV1: Builtin = {
   cpuModel: Cost.Constant(143),
   memModel: Cost.Constant(144),
   call: ([a]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in sndPair()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (
-      !(typeof a.value == "object" && a.value != null && "first" in a.value)
-    ) {
-      return Either.left(
-        new WrongArgType(0, "pair", Value.describeType(a.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: a.value.second
-    })
+    return expectPair(a, 0).pipe(
+      Either.map((a) => ({ _tag: "Const", value: a.second }))
+    )
   }
 }
 
@@ -1582,10 +827,6 @@ export const chooseListV1: Builtin = {
   cpuModel: Cost.Constant(35),
   memModel: Cost.Constant(36),
   call: ([lst, a, b]: CekValue[]) => {
-    if (lst === undefined) {
-      throw new Error("lst is undefined in chooseList()")
-    }
-
     if (a === undefined) {
       throw new Error("a is undefined in chooseList()")
     }
@@ -1594,23 +835,7 @@ export const chooseListV1: Builtin = {
       throw new Error("b is undefined in chooseList()")
     }
 
-    if (lst._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", lst._tag))
-    }
-
-    if (
-      !(
-        typeof lst.value == "object" &&
-        lst.value != null &&
-        "items" in lst.value
-      )
-    ) {
-      return Either.left(
-        new WrongArgType(0, "list", Value.describeType(lst.value))
-      )
-    }
-
-    return Either.right(lst.value.items.length == 0 ? a : b)
+    return expectList(lst, 0).pipe(Either.map((lst) => (lst.items.length == 0 ? a : b)))
   }
 }
 
@@ -1621,51 +846,25 @@ export const mkConsV1: Builtin = {
   cpuModel: Cost.Constant(101),
   memModel: Cost.Constant(102),
   call: ([item, list]: CekValue[]) => {
-    if (item === undefined) {
-      throw new Error("item is undefined in mkCons()")
-    }
-
-    if (list === undefined) {
-      throw new Error("list is undefined in mkCons()")
-    }
-
-    if (list._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", list._tag))
-    }
-
-    if (
-      !(
-        typeof list.value == "object" &&
-        list.value != null &&
-        "items" in list.value
+    return Either.all([expectConst(item, 1), expectList(list, 0)]).pipe(
+      Either.flatMap(([item, list]) =>
+        Value.toType(item) != list.itemType
+          ? Either.left(
+              new WrongArgType(
+                1,
+                Value.describeType(list.itemType),
+                Value.describeType(item)
+              )
+            )
+          : Either.right({
+              _tag: "Const",
+              value: {
+                itemType: list.itemType,
+                items: [item].concat(list.items)
+              }
+            })
       )
-    ) {
-      return Either.left(
-        new WrongArgType(0, "list", Value.describeType(list.value))
-      )
-    }
-
-    if (item._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", item._tag))
-    }
-
-    if (Value.toType(item.value) != list.value.itemType) {
-      return Either.left(
-        new WrongArgType(
-          1,
-          Value.describeType(list.value.itemType),
-          Value.describeType(item.value)
-        )
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        itemType: list.value.itemType,
-        items: [item.value].concat(list.value.items)
-      }
-    })
+    )
   }
 }
 
@@ -1682,32 +881,13 @@ export const headListV1: Builtin = {
   cpuModel: Cost.Constant(75),
   memModel: Cost.Constant(76),
   call: ([l]: CekValue[]) => {
-    if (l === undefined) {
-      throw new Error("list is undefined in headList()")
-    }
-
-    if (l._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", l._tag))
-    }
-
-    if (
-      !(typeof l.value == "object" && l.value != null && "items" in l.value)
-    ) {
-      return Either.left(
-        new WrongArgType(0, "list", Value.describeType(l.value))
+    return expectList(l, 0).pipe(
+      Either.flatMap((l) =>
+        l.items.length == 0
+          ? Either.left(new OutOfRange(0, 0))
+          : Either.right({ _tag: "Const", value: l.items[0] })
       )
-    }
-
-    if (l.value.items.length == 0) {
-      return Either.left(new OutOfRange(0, 0))
-    }
-
-    const head = l.value.items[0]
-
-    return Either.right({
-      _tag: "Const",
-      value: head
-    })
+    )
   }
 }
 
@@ -1724,33 +904,19 @@ export const tailListV1: Builtin = {
   cpuModel: Cost.Constant(149),
   memModel: Cost.Constant(150),
   call: ([l]: CekValue[]) => {
-    if (l === undefined) {
-      throw new Error("list is undefined in tailList()")
-    }
-
-    if (l._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", l._tag))
-    }
-
-    if (
-      !(typeof l.value == "object" && l.value != null && "items" in l.value)
-    ) {
-      return Either.left(
-        new WrongArgType(0, "list", Value.describeType(l.value))
+    return expectList(l, 0).pipe(
+      Either.flatMap((l) =>
+        l.items.length == 0
+          ? Either.left(new OutOfRange(0, 0))
+          : Either.right({
+              _tag: "Const",
+              value: {
+                itemType: l.itemType,
+                items: l.items.slice(1)
+              }
+            })
       )
-    }
-
-    if (l.value.items.length == 0) {
-      return Either.left(new OutOfRange(0, 0))
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        itemType: l.value.itemType,
-        items: l.value.items.slice(1)
-      }
-    })
+    )
   }
 }
 
@@ -1773,26 +939,9 @@ export const nullListV1: Builtin = {
   cpuModel: Cost.Constant(119),
   memModel: Cost.Constant(120),
   call: ([l]: CekValue[]) => {
-    if (l === undefined) {
-      throw new Error("list is undefined in nullList()")
-    }
-
-    if (l._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", l._tag))
-    }
-
-    if (
-      !(typeof l.value == "object" && l.value != null && "items" in l.value)
-    ) {
-      return Either.left(
-        new WrongArgType(0, "list", Value.describeType(l.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: l.value.items.length == 0
-    })
+    return expectList(l, 0).pipe(
+      Either.map((l) => ({ _tag: "Const", value: l.items.length == 0 }))
+    )
   }
 }
 
@@ -1816,10 +965,6 @@ export const chooseDataV1: Builtin = {
     intCase,
     bytesCase
   ]: CekValue[]) => {
-    if (cond === undefined) {
-      throw new Error("cond is undefined in chooseData()")
-    }
-
     if (constrCase === undefined) {
       throw new Error("constrCase is undefined in chooseData()")
     }
@@ -1840,38 +985,26 @@ export const chooseDataV1: Builtin = {
       throw new Error("bytesCase is undefined in chooseData()")
     }
 
-    if (cond._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", cond._tag))
-    }
-
-    if (
-      !(
-        typeof cond.value == "object" &&
-        cond.value != null &&
-        "data" in cond.value
-      )
-    ) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(cond.value))
-      )
-    }
-
-    if ("fields" in cond.value.data) {
-      return Either.right(constrCase)
-    } else if ("map" in cond.value.data) {
-      return Either.right(mapCase)
-    } else if ("list" in cond.value.data) {
-      return Either.right(listCase)
-    } else if ("int" in cond.value.data) {
-      return Either.right(intCase)
-    } else if ("bytes" in cond.value.data) {
-      return Either.right(bytesCase)
-    } else {
-      // this is a defect
-      throw new Error(
-        `unexpected data format in chooseData (got: ${cond.value.data as unknown as any})`
-      )
-    }
+    return expectData(cond, 0).pipe(
+      Either.map((cond) => {
+        if ("fields" in cond.data) {
+          return constrCase
+        } else if ("map" in cond.data) {
+          return mapCase
+        } else if ("list" in cond.data) {
+          return listCase
+        } else if ("int" in cond.data) {
+          return intCase
+        } else if ("bytes" in cond.data) {
+          return bytesCase
+        } else {
+          // this is a defect
+          throw new Error(
+            `unexpected data format in chooseData (got: ${cond.data as unknown as any})`
+          )
+        }
+      })
+    )
   }
 }
 
@@ -1882,49 +1015,23 @@ export const constrDataV1: Builtin = {
   cpuModel: Cost.Constant(43),
   memModel: Cost.Constant(44),
   call: ([tag, fields]: CekValue[]) => {
-    if (tag === undefined) {
-      throw new Error("tag is undefined in constrData()")
-    }
+    return Either.all([expectInteger(tag, 0), expectDataList(fields, 1)]).pipe(
+      Either.map(([tag, fields]) => ({
+        _tag: "Const",
+        value: {
+          data: {
+            constructor: Number(tag),
+            fields: fields.items.map((item) => {
+              if (!Value.isData(item)) {
+                throw new Error("expected only data value fields")
+              }
 
-    if (fields === undefined) {
-      throw new Error("fields is undefined in constrData()")
-    }
-
-    if (tag._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", tag._tag))
-    }
-
-    if (typeof tag.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(tag.value))
-      )
-    }
-
-    if (fields._tag != "Const") {
-      return Either.left(new WrongArgType(1, "Const", fields._tag))
-    }
-
-    if (!(Value.isList(fields.value) && fields.value.itemType == Type.Data)) {
-      return Either.left(
-        new WrongArgType(1, "data list", Value.describeType(fields.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        data: {
-          constructor: Number(tag.value),
-          fields: fields.value.items.map((item) => {
-            if (!Value.isData(item)) {
-              throw new Error("expected only data value fields")
-            }
-
-            return item.data
-          })
+              return item.data
+            })
+          }
         }
-      }
-    } satisfies CekValue)
+      }))
+    )
   }
 }
 
@@ -1935,46 +1042,34 @@ export const mapDataV1: Builtin = {
   cpuModel: Cost.Constant(99),
   memModel: Cost.Constant(100),
   call: ([pairs]: CekValue[]) => {
-    if (pairs === undefined) {
-      throw new Error("pairs is undefined in mapData()")
-    }
+    return expectDataPairList(pairs, 0).pipe(
+      Either.map((pairs) => ({
+        _tag: "Const",
+        value: {
+          data: {
+            map: pairs.items.map((pair) => {
+              if (!Value.isPair(pair)) {
+                // this is a defect
+                throw new Error("expected data pair")
+              }
 
-    if (pairs._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", pairs._tag))
-    }
+              const a = pair.first
+              const b = pair.second
 
-    if (!(Value.isList(pairs.value) && pairs.value.itemType == Type.DataPair)) {
-      return Either.left(
-        new WrongArgType(0, "data pair list", Value.describeType(pairs.value))
-      )
-    }
+              if (!Value.isData(a)) {
+                throw new Error("unexpected non-data first entry in pair")
+              }
 
-    return Either.right({
-      _tag: "Const",
-      value: {
-        data: {
-          map: pairs.value.items.map((pair) => {
-            if (!Value.isPair(pair)) {
-              // this is a defect
-              throw new Error("expected data pair")
-            }
+              if (!Value.isData(b)) {
+                throw new Error("unexpected non-data second entry in pair")
+              }
 
-            const a = pair.first
-            const b = pair.second
-
-            if (!Value.isData(a)) {
-              throw new Error("unexpected non-data first entry in pair")
-            }
-
-            if (!Value.isData(b)) {
-              throw new Error("unexpected non-data second entry in pair")
-            }
-
-            return { k: a.data, v: b.data }
-          })
+              return { k: a.data, v: b.data }
+            })
+          }
         }
-      }
-    })
+      }))
+    )
   }
 }
 
@@ -1991,34 +1086,22 @@ export const listDataV1: Builtin = {
   cpuModel: Cost.Constant(97),
   memModel: Cost.Constant(98),
   call: ([list]: CekValue[]) => {
-    if (list === undefined) {
-      throw new Error("list is undefined in listData()")
-    }
+    return expectDataList(list, 0).pipe(
+      Either.map((list) => ({
+        _tag: "Const",
+        value: {
+          data: {
+            list: list.items.map((item) => {
+              if (!Value.isData(item)) {
+                throw new Error("expected data item")
+              }
 
-    if (list._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", list._tag))
-    }
-
-    if (!(Value.isList(list.value) && list.value.itemType == Type.Data)) {
-      return Either.left(
-        new WrongArgType(0, "data list", Value.describeType(list.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        data: {
-          list: list.value.items.map((item) => {
-            if (!Value.isData(item)) {
-              throw new Error("expected data item")
-            }
-
-            return item.data
-          })
+              return item.data
+            })
+          }
         }
-      }
-    })
+      }))
+    )
   }
 }
 
@@ -2035,28 +1118,9 @@ export const iDataV1: Builtin = {
   cpuModel: Cost.Constant(77),
   memModel: Cost.Constant(78),
   call: ([x]: CekValue[]) => {
-    if (x === undefined) {
-      throw new Error("x is undefined in iData()")
-    }
-
-    if (x._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", x._tag))
-    }
-
-    if (typeof x.value != "bigint") {
-      return Either.left(
-        new WrongArgType(0, "integer", Value.describeType(x.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        data: {
-          int: x.value
-        }
-      }
-    })
+    return expectInteger(x, 0).pipe(
+      Either.map((x) => ({ _tag: "Const", value: { data: { int: x } } }))
+    )
   }
 }
 
@@ -2073,28 +1137,9 @@ export const bDataV1: Builtin = {
   cpuModel: Cost.Constant(12),
   memModel: Cost.Constant(13),
   call: ([b]: CekValue[]) => {
-    if (b === undefined) {
-      throw new Error("b is undefined in bData()")
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", b._tag))
-    }
-
-    if (!(b.value instanceof Uint8Array)) {
-      return Either.left(
-        new WrongArgType(0, "bytes", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        data: {
-          bytes: b.value
-        }
-      }
-    })
+    return expectBytes(b, 0).pipe(
+      Either.map((b) => ({ _tag: "Const", value: { data: { bytes: b } } }))
+    )
   }
 }
 
@@ -2105,40 +1150,24 @@ export const unConstrDataV1: Builtin = {
   cpuModel: Cost.Constant(155),
   memModel: Cost.Constant(156),
   call: ([data]: CekValue[]) => {
-    if (data === undefined) {
-      throw new Error("data is undefined in unConstrData()")
-    }
-
-    if (data._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", data._tag))
-    }
-
-    if (!Value.isData(data.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(data.value))
+    return expectData(data, 0).pipe(
+      Either.flatMap((data) =>
+        "fields" in data.data
+          ? Either.right({
+              _tag: "Const",
+              value: {
+                first: BigInt(data.data.constructor),
+                second: {
+                  itemType: Type.Data,
+                  items: data.data.fields.map((d) => ({ data: d }))
+                } satisfies Value.Value
+              } satisfies Value.Value
+            })
+          : Either.left(
+              new WrongArgType(0, "constr data", Object.keys(data.data).join(""))
+            )
       )
-    }
-
-    if (!("fields" in data.value.data)) {
-      return Either.left(
-        new WrongArgType(
-          0,
-          "constr data",
-          Object.keys(data.value.data).join("")
-        )
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        first: BigInt(data.value.data.constructor),
-        second: {
-          itemType: Type.Data,
-          items: data.value.data.fields.map((d) => ({ data: d }))
-        } satisfies Value.Value
-      } satisfies Value.Value
-    })
+    )
   }
 }
 
@@ -2161,36 +1190,22 @@ export const unMapDataV1: Builtin = {
   cpuModel: Cost.Constant(161),
   memModel: Cost.Constant(162),
   call: ([data]: CekValue[]) => {
-    if (data === undefined) {
-      throw new Error("data is undefined in unMapData()")
-    }
-
-    if (data._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", data._tag))
-    }
-
-    if (!Value.isData(data.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(data.value))
+    return expectData(data, 0).pipe(
+      Either.flatMap((data) =>
+        "map" in data.data
+          ? Either.right({
+              _tag: "Const",
+              value: {
+                itemType: Type.Data,
+                items: data.data.map.map((d) => ({
+                  first: { data: d.k },
+                  second: { data: d.v }
+                }))
+              } satisfies Value.Value
+            })
+          : Either.left(new WrongArgType(0, "map data", Value.describeType(data)))
       )
-    }
-
-    if (!("map" in data.value.data)) {
-      return Either.left(
-        new WrongArgType(0, "map data", Value.describeType(data.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        itemType: Type.Data,
-        items: data.value.data.map.map((d) => ({
-          first: { data: d.k },
-          second: { data: d.v }
-        }))
-      } satisfies Value.Value
-    })
+    )
   }
 }
 
@@ -2213,33 +1228,19 @@ export const unListDataV1: Builtin = {
   cpuModel: Cost.Constant(159),
   memModel: Cost.Constant(160),
   call: ([data]: CekValue[]) => {
-    if (data === undefined) {
-      throw new Error("data is undefined in unListData()")
-    }
-
-    if (data._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", data._tag))
-    }
-
-    if (!Value.isData(data.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(data.value))
+    return expectData(data, 0).pipe(
+      Either.flatMap((data) =>
+        "list" in data.data
+          ? Either.right({
+              _tag: "Const",
+              value: {
+                itemType: Type.Data,
+                items: data.data.list.map((d) => ({ data: d }))
+              } satisfies Value.Value
+            })
+          : Either.left(new WrongArgType(0, "list data", Value.describeType(data)))
       )
-    }
-
-    if (!("list" in data.value.data)) {
-      return Either.left(
-        new WrongArgType(0, "list data", Value.describeType(data.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        itemType: Type.Data,
-        items: data.value.data.list.map((d) => ({ data: d }))
-      } satisfies Value.Value
-    })
+    )
   }
 }
 
@@ -2262,30 +1263,13 @@ export const unIDataV1: Builtin = {
   cpuModel: Cost.Constant(157),
   memModel: Cost.Constant(158),
   call: ([data]: CekValue[]) => {
-    if (data === undefined) {
-      throw new Error("data is undefined in unIData()")
-    }
-
-    if (data._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", data._tag))
-    }
-
-    if (!Value.isData(data.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(data.value))
+    return expectData(data, 0).pipe(
+      Either.flatMap((data) =>
+        "int" in data.data
+          ? Either.right({ _tag: "Const", value: data.data.int })
+          : Either.left(new WrongArgType(0, "int data", Value.describeType(data)))
       )
-    }
-
-    if (!("int" in data.value.data)) {
-      return Either.left(
-        new WrongArgType(0, "int data", Value.describeType(data.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: data.value.data.int
-    })
+    )
   }
 }
 
@@ -2308,30 +1292,13 @@ export const unBDataV1: Builtin = {
   cpuModel: Cost.Constant(153),
   memModel: Cost.Constant(154),
   call: ([data]: CekValue[]) => {
-    if (data === undefined) {
-      throw new Error("data is undefined in unBData()")
-    }
-
-    if (data._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", data._tag))
-    }
-
-    if (!Value.isData(data.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(data.value))
+    return expectData(data, 0).pipe(
+      Either.flatMap((data) =>
+        "bytes" in data.data
+          ? Either.right({ _tag: "Const", value: data.data.bytes })
+          : Either.left(new WrongArgType(0, "byte data", Value.describeType(data)))
       )
-    }
-
-    if (!("bytes" in data.value.data)) {
-      return Either.left(
-        new WrongArgType(0, "byte data", Value.describeType(data.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: data.value.data.bytes
-    })
+    )
   }
 }
 
@@ -2354,38 +1321,12 @@ export const equalsDataV1: Builtin = {
   cpuModel: Cost.Linear(63, 64)(Cost.Min),
   memModel: Cost.Constant(65),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in equalsData()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in equalsData()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!Value.isData(a.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", b._tag))
-    }
-
-    if (!Value.isData(b.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: dataToString(a.value.data) == dataToString(b.value.data)
-    })
+    return Either.all([expectData(a, 0), expectData(b, 1)]).pipe(
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: dataToString(a.data) == dataToString(b.data)
+      }))
+    )
   }
 }
 
@@ -2402,41 +1343,15 @@ export const mkPairDataV1: Builtin = {
   cpuModel: Cost.Constant(107),
   memModel: Cost.Constant(108),
   call: ([a, b]: CekValue[]) => {
-    if (a === undefined) {
-      throw new Error("a is undefined in mkPairData()")
-    }
-
-    if (b === undefined) {
-      throw new Error("b is undefined in mkPairData()")
-    }
-
-    if (a._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", a._tag))
-    }
-
-    if (!Value.isData(a.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(a.value))
-      )
-    }
-
-    if (b._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", b._tag))
-    }
-
-    if (!Value.isData(b.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(b.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        first: a.value,
-        second: b.value
-      } satisfies Value.Value
-    })
+    return Either.all([expectData(a, 0), expectData(b, 1)]).pipe(
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: {
+          first: a,
+          second: b
+        } satisfies Value.Value
+      }))
+    )
   }
 }
 
@@ -2453,27 +1368,15 @@ export const mkNilDataV1: Builtin = {
   cpuModel: Cost.Constant(103),
   memModel: Cost.Constant(104),
   call: ([unit]: CekValue[]) => {
-    if (unit === undefined) {
-      throw new Error("unit is undefined in mkNilData()")
-    }
-
-    if (unit._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", unit._tag))
-    }
-
-    if (unit.value !== null) {
-      return Either.left(
-        new WrongArgType(0, "null", Value.describeType(unit.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        itemType: Type.Data,
-        items: []
-      } satisfies Value.Value
-    })
+    return expectUnit(unit, 0, "null").pipe(
+      Either.map(() => ({
+        _tag: "Const",
+        value: {
+          itemType: Type.Data,
+          items: []
+        } satisfies Value.Value
+      }))
+    )
   }
 }
 
@@ -2490,27 +1393,15 @@ export const mkNilPairDataV1: Builtin = {
   cpuModel: Cost.Constant(105),
   memModel: Cost.Constant(106),
   call: ([unit]: CekValue[]) => {
-    if (unit === undefined) {
-      throw new Error("unit is undefined in mkNilPairData()")
-    }
-
-    if (unit._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", unit._tag))
-    }
-
-    if (unit.value !== null) {
-      return Either.left(
-        new WrongArgType(0, "null", Value.describeType(unit.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: {
-        itemType: Type.DataPair,
-        items: []
-      }
-    })
+    return expectUnit(unit, 0, "null").pipe(
+      Either.map(() => ({
+        _tag: "Const",
+        value: {
+          itemType: Type.DataPair,
+          items: []
+        }
+      }))
+    )
   }
 }
 
@@ -2527,24 +1418,12 @@ export const serialiseDataV2: Builtin = {
   cpuModel: Cost.Linear(133, 134)(Cost.First),
   memModel: Cost.Linear(135, 136)(Cost.First),
   call: ([data]: CekValue[]) => {
-    if (data === undefined) {
-      throw new Error("data is undefined in serialiseData()")
-    }
-
-    if (data._tag != "Const") {
-      return Either.left(new WrongArgType(0, "Const", data._tag))
-    }
-
-    if (!Value.isData(data.value)) {
-      return Either.left(
-        new WrongArgType(0, "data", Value.describeType(data.value))
-      )
-    }
-
-    return Either.right({
-      _tag: "Const",
-      value: Bytes.toUint8Array(encodeData(data.value.data))
-    })
+    return expectData(data, 0).pipe(
+      Either.map((data) => ({
+        _tag: "Const",
+        value: Bytes.toUint8Array(encodeData(data.data))
+      }))
+    )
   }
 }
 
@@ -2586,6 +1465,494 @@ export const verifySchnorrSecp256k1SignatureV3: Builtin = {
   ...verifyEcdsaSecp256k1SignatureV2,
   cpuModel: Cost.Linear(190, 191)(Cost.Third),
   memModel: Cost.Constant(192)
+}
+
+function expectConst(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Value.Value, WrongArgType> {
+  if (arg === undefined) {
+    return Either.left(new WrongArgType(index, "Const", "undefined"))
+  } else if (arg._tag != "Const") {
+    return Either.left(new WrongArgType(index, "Const", arg._tag))
+  } else {
+    return Either.right(arg.value)
+  }
+}
+
+function expectG1(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Crypto.Bls12_381.G1, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      typeof value == "object" && value != null && "g1Element" in value
+        ? Either.right(Value.tupleToG1(value.g1Element))
+        : Either.left(
+            new WrongArgType(index, "bls12_381_G1_element", Value.describeType(value))
+          )
+    )
+  )
+}
+
+function expectG2(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Crypto.Bls12_381.G2, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      typeof value == "object" && value != null && "g2Element" in value
+        ? Either.right(Value.tupleToG2(value.g2Element))
+        : Either.left(
+            new WrongArgType(index, "bls12_381_G2_element", Value.describeType(value))
+          )
+    )
+  )
+}
+
+function expectMlResult(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Crypto.Bls12_381.Fp12, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      typeof value == "object" && value != null && "mlResult" in value
+        ? Either.right([
+            [
+              [value.mlResult[0][0][0], value.mlResult[0][0][1]],
+              [value.mlResult[0][1][0], value.mlResult[0][1][1]],
+              [value.mlResult[0][2][0], value.mlResult[0][2][1]]
+            ],
+            [
+              [value.mlResult[1][0][0], value.mlResult[1][0][1]],
+              [value.mlResult[1][1][0], value.mlResult[1][1][1]],
+              [value.mlResult[1][2][0], value.mlResult[1][2][1]]
+            ]
+          ])
+        : Either.left(
+            new WrongArgType(index, "bls12_381_mlresult", Value.describeType(value))
+          )
+    )
+  )
+}
+
+function expectBytes(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Uint8Array, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      value instanceof Uint8Array
+        ? Either.right(value)
+        : Either.left(new WrongArgType(index, "bytes", Value.describeType(value)))
+    )
+  )
+}
+
+function expectInteger(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<bigint, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      typeof value == "bigint"
+        ? Either.right(value)
+        : Either.left(new WrongArgType(index, "integer", Value.describeType(value)))
+    )
+  )
+}
+
+function expectBool(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<boolean, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      typeof value == "boolean"
+        ? Either.right(value)
+        : Either.left(new WrongArgType(index, "bool", Value.describeType(value)))
+    )
+  )
+}
+
+function expectString(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<string, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      typeof value == "string"
+        ? Either.right(value)
+        : Either.left(new WrongArgType(index, "string", Value.describeType(value)))
+    )
+  )
+}
+
+function expectUnit(
+  arg: CekValue | undefined,
+  index: number,
+  expected = "unit"
+): Either.Either<null, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      value === null
+        ? Either.right(value)
+        : Either.left(new WrongArgType(index, expected, Value.describeType(value)))
+    )
+  )
+}
+
+function expectData(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Value.Data, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      Value.isData(value)
+        ? Either.right(value)
+        : Either.left(new WrongArgType(index, "data", Value.describeType(value)))
+    )
+  )
+}
+
+function expectPair(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Value.Pair, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      Value.isPair(value)
+        ? Either.right(value)
+        : Either.left(new WrongArgType(index, "pair", Value.describeType(value)))
+    )
+  )
+}
+
+function expectList(
+  arg: CekValue | undefined,
+  index: number,
+  expected = "list"
+): Either.Either<Value.List, WrongArgType> {
+  return expectConst(arg, index).pipe(
+    Either.flatMap((value) =>
+      Value.isList(value)
+        ? Either.right(value)
+        : Either.left(new WrongArgType(index, expected, Value.describeType(value)))
+    )
+  )
+}
+
+function expectDataList(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Value.List, WrongArgType> {
+  return expectList(arg, index, "data list").pipe(
+    Either.flatMap((list) =>
+      list.itemType == Type.Data
+        ? Either.right(list)
+        : Either.left(new WrongArgType(index, "data list", Value.describeType(list)))
+    )
+  )
+}
+
+function expectDataPairList(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<Value.List, WrongArgType> {
+  return expectList(arg, index, "data pair list").pipe(
+    Either.flatMap((list) =>
+      list.itemType == Type.DataPair
+        ? Either.right(list)
+        : Either.left(
+            new WrongArgType(index, "data pair list", Value.describeType(list))
+          )
+    )
+  )
+}
+
+function cryptoFailure(message: string): Encoding.DecodeException {
+  return Bytes.DecodeException([], message)
+}
+
+function tryCrypto<T>(fn: () => T): Either.Either<T, Encoding.DecodeException> {
+  try {
+    return Either.right(fn())
+  } catch (e) {
+    return Either.left(cryptoFailure(e instanceof Error ? e.message : String(e)))
+  }
+}
+
+export const bls12_381_G1_addV3: Builtin = {
+  name: "bls12_381_G1_add",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Constant(197),
+  memModel: Cost.Constant(198),
+  call: ([a, b]) =>
+    Either.all([expectG1(a, 0), expectG1(b, 1)]).pipe(
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: { g1Element: Value.g1ToTuple(Crypto.Bls12_381.g1Add(a, b)) }
+      }))
+    )
+}
+
+export const bls12_381_G1_negV3: Builtin = {
+  name: "bls12_381_G1_neg",
+  forceCount: 0,
+  nArgs: 1,
+  cpuModel: Cost.Constant(206),
+  memModel: Cost.Constant(207),
+  call: ([a]) =>
+    expectG1(a, 0).pipe(
+      Either.map((a) => ({
+        _tag: "Const",
+        value: { g1Element: Value.g1ToTuple(Crypto.Bls12_381.g1Neg(a)) }
+      }))
+    )
+}
+
+export const bls12_381_G1_scalarMulV3: Builtin = {
+  name: "bls12_381_G1_scalarMul",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Linear(208, 209)(Cost.First),
+  memModel: Cost.Constant(210),
+  call: ([s, p]) =>
+    Either.all([expectInteger(s, 0), expectG1(p, 1)]).pipe(
+      Either.map(([s, p]) => ({
+        _tag: "Const",
+        value: { g1Element: Value.g1ToTuple(Crypto.Bls12_381.g1ScalarMul(s, p)) }
+      }))
+    )
+}
+
+export const bls12_381_G1_equalV3: Builtin = {
+  name: "bls12_381_G1_equal",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Constant(201),
+  memModel: Cost.Constant(202),
+  call: ([a, b]) =>
+    Either.all([expectG1(a, 0), expectG1(b, 1)]).pipe(
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: Crypto.Bls12_381.g1Equals(a, b)
+      }))
+    )
+}
+
+export const bls12_381_G1_hashToGroupV3: Builtin = {
+  name: "bls12_381_G1_hashToGroup",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Linear(203, 204)(Cost.Sum),
+  memModel: Cost.Constant(205),
+  call: ([msg, dst]) =>
+    Either.all([expectBytes(msg, 0), expectBytes(dst, 1)]).pipe(
+      Either.flatMap(([msg, dst]) =>
+        tryCrypto(() => Crypto.Bls12_381.g1HashToGroup(msg, dst)).pipe(
+          Either.map((p) => ({
+            _tag: "Const",
+            value: { g1Element: Value.g1ToTuple(p) }
+          }))
+        )
+      )
+    )
+}
+
+export const bls12_381_G1_compressV3: Builtin = {
+  name: "bls12_381_G1_compress",
+  forceCount: 0,
+  nArgs: 1,
+  cpuModel: Cost.Constant(199),
+  memModel: Cost.Constant(200),
+  call: ([a]) =>
+    expectG1(a, 0).pipe(
+      Either.map((a) => ({
+        _tag: "Const",
+        value: Crypto.Bls12_381.g1Compress(a)
+      }))
+    )
+}
+
+export const bls12_381_G1_uncompressV3: Builtin = {
+  name: "bls12_381_G1_uncompress",
+  forceCount: 0,
+  nArgs: 1,
+  cpuModel: Cost.Constant(211),
+  memModel: Cost.Constant(212),
+  call: ([a]) =>
+    expectBytes(a, 0).pipe(
+      Either.flatMap((bytes) =>
+        Crypto.Bls12_381.g1Uncompress(bytes).pipe(
+          Either.map((p) => ({
+            _tag: "Const",
+            value: { g1Element: Value.g1ToTuple(p) }
+          }))
+        )
+      )
+    )
+}
+
+export const bls12_381_G2_addV3: Builtin = {
+  name: "bls12_381_G2_add",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Constant(213),
+  memModel: Cost.Constant(214),
+  call: ([a, b]) =>
+    Either.all([expectG2(a, 0), expectG2(b, 1)]).pipe(
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: { g2Element: Value.g2ToTuple(Crypto.Bls12_381.g2Add(a, b)) }
+      }))
+    )
+}
+
+export const bls12_381_G2_negV3: Builtin = {
+  name: "bls12_381_G2_neg",
+  forceCount: 0,
+  nArgs: 1,
+  cpuModel: Cost.Constant(222),
+  memModel: Cost.Constant(223),
+  call: ([a]) =>
+    expectG2(a, 0).pipe(
+      Either.map((a) => ({
+        _tag: "Const",
+        value: { g2Element: Value.g2ToTuple(Crypto.Bls12_381.g2Neg(a)) }
+      }))
+    )
+}
+
+export const bls12_381_G2_scalarMulV3: Builtin = {
+  name: "bls12_381_G2_scalarMul",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Linear(224, 225)(Cost.First),
+  memModel: Cost.Constant(226),
+  call: ([s, p]) =>
+    Either.all([expectInteger(s, 0), expectG2(p, 1)]).pipe(
+      Either.map(([s, p]) => ({
+        _tag: "Const",
+        value: { g2Element: Value.g2ToTuple(Crypto.Bls12_381.g2ScalarMul(s, p)) }
+      }))
+    )
+}
+
+export const bls12_381_G2_equalV3: Builtin = {
+  name: "bls12_381_G2_equal",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Constant(217),
+  memModel: Cost.Constant(218),
+  call: ([a, b]) =>
+    Either.all([expectG2(a, 0), expectG2(b, 1)]).pipe(
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: Crypto.Bls12_381.g2Equals(a, b)
+      }))
+    )
+}
+
+export const bls12_381_G2_hashToGroupV3: Builtin = {
+  name: "bls12_381_G2_hashToGroup",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Linear(219, 220)(Cost.Sum),
+  memModel: Cost.Constant(221),
+  call: ([msg, dst]) =>
+    Either.all([expectBytes(msg, 0), expectBytes(dst, 1)]).pipe(
+      Either.flatMap(([msg, dst]) =>
+        tryCrypto(() => Crypto.Bls12_381.g2HashToGroup(msg, dst)).pipe(
+          Either.map((p) => ({
+            _tag: "Const",
+            value: { g2Element: Value.g2ToTuple(p) }
+          }))
+        )
+      )
+    )
+}
+
+export const bls12_381_G2_compressV3: Builtin = {
+  name: "bls12_381_G2_compress",
+  forceCount: 0,
+  nArgs: 1,
+  cpuModel: Cost.Constant(215),
+  memModel: Cost.Constant(216),
+  call: ([a]) =>
+    expectG2(a, 0).pipe(
+      Either.map((a) => ({
+        _tag: "Const",
+        value: Crypto.Bls12_381.g2Compress(a)
+      }))
+    )
+}
+
+export const bls12_381_G2_uncompressV3: Builtin = {
+  name: "bls12_381_G2_uncompress",
+  forceCount: 0,
+  nArgs: 1,
+  cpuModel: Cost.Constant(227),
+  memModel: Cost.Constant(228),
+  call: ([a]) =>
+    expectBytes(a, 0).pipe(
+      Either.flatMap((bytes) =>
+        Crypto.Bls12_381.g2Uncompress(bytes).pipe(
+          Either.map((p) => ({
+            _tag: "Const",
+            value: { g2Element: Value.g2ToTuple(p) }
+          }))
+        )
+      )
+    )
+}
+
+export const bls12_381_millerLoopV3: Builtin = {
+  name: "bls12_381_millerLoop",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Constant(231),
+  memModel: Cost.Constant(232),
+  call: ([a, b]) =>
+    Either.all([expectG1(a, 0), expectG2(b, 1)]).pipe(
+      Either.flatMap(([a, b]) =>
+        tryCrypto(() => Crypto.Bls12_381.millerLoop(a, b)).pipe(
+          Either.map((mlResult) => ({ _tag: "Const", value: { mlResult } }))
+        )
+      )
+    )
+}
+
+export const bls12_381_mulMlResultV3: Builtin = {
+  name: "bls12_381_mulMlResult",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Constant(233),
+  memModel: Cost.Constant(234),
+  call: ([a, b]) =>
+    Either.all([expectMlResult(a, 0), expectMlResult(b, 1)]).pipe(
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: { mlResult: Crypto.Bls12_381.mulMlResult(a, b) }
+      }))
+    )
+}
+
+export const bls12_381_finalVerifyV3: Builtin = {
+  name: "bls12_381_finalVerify",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Constant(229),
+  memModel: Cost.Constant(230),
+  call: ([a, b]) =>
+    Either.all([expectMlResult(a, 0), expectMlResult(b, 1)]).pipe(
+      Either.flatMap(([a, b]) =>
+        tryCrypto(() => Crypto.Bls12_381.finalVerify(a, b)).pipe(
+          Either.map((value) => ({ _tag: "Const", value }))
+        )
+      )
+    )
 }
 
 export const V1: Builtin[] = [
@@ -2753,6 +2120,22 @@ export const V3: Builtin[] = [
   mkNilPairDataV3, // 50
   serialiseDataV3, // 51
   verifyEcdsaSecp256k1SignatureV3, // 52
-  verifySchnorrSecp256k1SignatureV3 // 53
-  // TODO: remaining builtins
+  verifySchnorrSecp256k1SignatureV3, // 53
+  bls12_381_G1_addV3, // 54
+  bls12_381_G1_negV3, // 55
+  bls12_381_G1_scalarMulV3, // 56
+  bls12_381_G1_equalV3, // 57
+  bls12_381_G1_hashToGroupV3, // 58
+  bls12_381_G1_compressV3, // 59
+  bls12_381_G1_uncompressV3, // 60
+  bls12_381_G2_addV3, // 61
+  bls12_381_G2_negV3, // 62
+  bls12_381_G2_scalarMulV3, // 63
+  bls12_381_G2_equalV3, // 64
+  bls12_381_G2_hashToGroupV3, // 65
+  bls12_381_G2_compressV3, // 66
+  bls12_381_G2_uncompressV3, // 67
+  bls12_381_millerLoopV3, // 68
+  bls12_381_mulMlResultV3, // 69
+  bls12_381_finalVerifyV3 // 70
 ]
