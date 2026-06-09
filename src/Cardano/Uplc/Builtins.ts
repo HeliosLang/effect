@@ -1642,6 +1642,95 @@ function expectList(
   )
 }
 
+function expectIntegerList(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<readonly bigint[], WrongArgType> {
+  return expectList(arg, index, "integer list").pipe(
+    Either.flatMap((list) =>
+      list.itemType == Type.Int
+        ? Either.all(
+            list.items.map((value) =>
+              typeof value == "bigint"
+                ? Either.right(value)
+                : Either.left(
+                    new WrongArgType(
+                      index,
+                      "integer list",
+                      Value.describeType(value)
+                    )
+                  )
+            )
+          )
+        : Either.left(
+            new WrongArgType(index, "integer list", Value.describeType(list))
+          )
+    )
+  )
+}
+
+function expectG1List(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<readonly Crypto.Bls12_381.G1[], WrongArgType> {
+  return expectList(arg, index, "bls12_381_G1_element list").pipe(
+    Either.flatMap((list) =>
+      list.itemType == Type.Bls12_381_G1Element
+        ? Either.all(
+            list.items.map((value) =>
+              typeof value == "object" && value != null && "g1Element" in value
+                ? Either.right(Value.tupleToG1(value.g1Element))
+                : Either.left(
+                    new WrongArgType(
+                      index,
+                      "bls12_381_G1_element list",
+                      Value.describeType(value)
+                    )
+                  )
+            )
+          )
+        : Either.left(
+            new WrongArgType(
+              index,
+              "bls12_381_G1_element list",
+              Value.describeType(list)
+            )
+          )
+    )
+  )
+}
+
+function expectG2List(
+  arg: CekValue | undefined,
+  index: number
+): Either.Either<readonly Crypto.Bls12_381.G2[], WrongArgType> {
+  return expectList(arg, index, "bls12_381_G2_element list").pipe(
+    Either.flatMap((list) =>
+      list.itemType == Type.Bls12_381_G2Element
+        ? Either.all(
+            list.items.map((value) =>
+              typeof value == "object" && value != null && "g2Element" in value
+                ? Either.right(Value.tupleToG2(value.g2Element))
+                : Either.left(
+                    new WrongArgType(
+                      index,
+                      "bls12_381_G2_element list",
+                      Value.describeType(value)
+                    )
+                  )
+            )
+          )
+        : Either.left(
+            new WrongArgType(
+              index,
+              "bls12_381_G2_element list",
+              Value.describeType(list)
+            )
+          )
+    )
+  )
+}
+
 function expectDataList(
   arg: CekValue | undefined,
   index: number
@@ -1674,12 +1763,86 @@ function cryptoFailure(message: string): Encoding.DecodeException {
   return Bytes.DecodeException([], message)
 }
 
+const BLS12_381_SCALAR_LOWER_BOUND = -(2n ** 4095n)
+const BLS12_381_SCALAR_UPPER_BOUND = 2n ** 4095n - 1n
+
+function bls12_381ScalarOutOfBounds(s: bigint): boolean {
+  return s < BLS12_381_SCALAR_LOWER_BOUND || s > BLS12_381_SCALAR_UPPER_BOUND
+}
+
+function expectBls12_381Scalar(
+  arg: CekValue | undefined,
+  index: number,
+  groupName: string
+): Either.Either<bigint, WrongArgType | Encoding.DecodeException> {
+  return expectInteger(arg, index).pipe(
+    Either.flatMap((s) =>
+      bls12_381ScalarOutOfBounds(s)
+        ? Either.left(
+            cryptoFailure(`Scalar exceeds 512-byte bound for ${groupName}.scalarMul`)
+          )
+        : Either.right(s)
+    )
+  )
+}
+
+function expectBls12_381Scalars(
+  arg: CekValue | undefined,
+  index: number,
+  groupName: string
+): Either.Either<readonly bigint[], WrongArgType | Encoding.DecodeException> {
+  return expectIntegerList(arg, index).pipe(
+    Either.flatMap((scalars) =>
+      scalars.some(bls12_381ScalarOutOfBounds)
+        ? Either.left(
+            cryptoFailure(
+              `Scalar exceeds 512-byte bound for ${groupName}.multiScalarMul`
+            )
+          )
+        : Either.right(scalars)
+    )
+  )
+}
+
+function expectBls12_381HashArgs(
+  msg: CekValue | undefined,
+  dst: CekValue | undefined
+): Either.Either<
+  [Uint8Array, Uint8Array],
+  WrongArgType | Encoding.DecodeException
+> {
+  return Either.all([expectBytes(msg, 0), expectBytes(dst, 1)]).pipe(
+    Either.flatMap(([msg, dst]) =>
+      dst.length > 255
+        ? Either.left(cryptoFailure("DSTs can be at most 255 bytes long"))
+        : Either.right([msg, dst])
+    )
+  )
+}
+
 function tryCrypto<T>(fn: () => T): Either.Either<T, Encoding.DecodeException> {
   try {
     return Either.right(fn())
   } catch (e) {
     return Either.left(cryptoFailure(e instanceof Error ? e.message : String(e)))
   }
+}
+
+function zipWithBls12_381MultiScalarMul<T>(
+  scalars: readonly bigint[],
+  points: readonly T[],
+  zero: T,
+  add: (a: T, b: T) => T,
+  scalarMul: (s: bigint, p: T) => T
+): T {
+  const n = Math.min(scalars.length, points.length)
+  let sum = zero
+
+  for (let i = 0; i < n; i++) {
+    sum = add(sum, scalarMul(scalars[i], points[i]))
+  }
+
+  return sum
 }
 
 export const bls12_381_G1_addV3: Builtin = {
@@ -1719,10 +1882,38 @@ export const bls12_381_G1_scalarMulV3: Builtin = {
   cpuModel: Cost.Linear(208, 209)(Cost.First),
   memModel: Cost.Constant(210),
   call: ([s, p]) =>
-    Either.all([expectInteger(s, 0), expectG1(p, 1)]).pipe(
+    Either.all([expectBls12_381Scalar(s, 0, "G1"), expectG1(p, 1)]).pipe(
       Either.map(([s, p]) => ({
         _tag: "Const",
         value: { g1Element: Value.g1ToTuple(Crypto.Bls12_381.g1ScalarMul(s, p)) }
+      }))
+    )
+}
+
+export const bls12_381_G1_multiScalarMulV3: Builtin = {
+  name: "bls12_381_G1_multiScalarMul",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Linear(208, 209)(Cost.Min),
+  memModel: Cost.Constant(210),
+  call: ([scalars, points]) =>
+    Either.all([
+      expectBls12_381Scalars(scalars, 0, "G1"),
+      expectG1List(points, 1)
+    ]).pipe(
+      Either.map(([scalars, points]) => ({
+        _tag: "Const",
+        value: {
+          g1Element: Value.g1ToTuple(
+            zipWithBls12_381MultiScalarMul(
+              scalars,
+              points,
+              Crypto.Bls12_381.g1Zero(),
+              Crypto.Bls12_381.g1Add,
+              Crypto.Bls12_381.g1ScalarMul
+            )
+          )
+        }
       }))
     )
 }
@@ -1749,7 +1940,7 @@ export const bls12_381_G1_hashToGroupV3: Builtin = {
   cpuModel: Cost.Linear(203, 204)(Cost.Sum),
   memModel: Cost.Constant(205),
   call: ([msg, dst]) =>
-    Either.all([expectBytes(msg, 0), expectBytes(dst, 1)]).pipe(
+    expectBls12_381HashArgs(msg, dst).pipe(
       Either.flatMap(([msg, dst]) =>
         tryCrypto(() => Crypto.Bls12_381.g1HashToGroup(msg, dst)).pipe(
           Either.map((p) => ({
@@ -1832,10 +2023,38 @@ export const bls12_381_G2_scalarMulV3: Builtin = {
   cpuModel: Cost.Linear(224, 225)(Cost.First),
   memModel: Cost.Constant(226),
   call: ([s, p]) =>
-    Either.all([expectInteger(s, 0), expectG2(p, 1)]).pipe(
+    Either.all([expectBls12_381Scalar(s, 0, "G2"), expectG2(p, 1)]).pipe(
       Either.map(([s, p]) => ({
         _tag: "Const",
         value: { g2Element: Value.g2ToTuple(Crypto.Bls12_381.g2ScalarMul(s, p)) }
+      }))
+    )
+}
+
+export const bls12_381_G2_multiScalarMulV3: Builtin = {
+  name: "bls12_381_G2_multiScalarMul",
+  forceCount: 0,
+  nArgs: 2,
+  cpuModel: Cost.Linear(224, 225)(Cost.Min),
+  memModel: Cost.Constant(226),
+  call: ([scalars, points]) =>
+    Either.all([
+      expectBls12_381Scalars(scalars, 0, "G2"),
+      expectG2List(points, 1)
+    ]).pipe(
+      Either.map(([scalars, points]) => ({
+        _tag: "Const",
+        value: {
+          g2Element: Value.g2ToTuple(
+            zipWithBls12_381MultiScalarMul(
+              scalars,
+              points,
+              Crypto.Bls12_381.g2Zero(),
+              Crypto.Bls12_381.g2Add,
+              Crypto.Bls12_381.g2ScalarMul
+            )
+          )
+        }
       }))
     )
 }
@@ -1862,7 +2081,7 @@ export const bls12_381_G2_hashToGroupV3: Builtin = {
   cpuModel: Cost.Linear(219, 220)(Cost.Sum),
   memModel: Cost.Constant(221),
   call: ([msg, dst]) =>
-    Either.all([expectBytes(msg, 0), expectBytes(dst, 1)]).pipe(
+    expectBls12_381HashArgs(msg, dst).pipe(
       Either.flatMap(([msg, dst]) =>
         tryCrypto(() => Crypto.Bls12_381.g2HashToGroup(msg, dst)).pipe(
           Either.map((p) => ({
