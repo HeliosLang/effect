@@ -66,8 +66,6 @@ export type Script<V extends Version = Version> = {
   verbose?: Uint8Array | undefined
 }
 
-export const entryPoint = (script: Script) => Term.decodeRoot(script.root)
-
 export const decodeRoot = (
   bytes: Bytes.BytesLike
 ): Cbor.DecodeResult<{ uplcVersion: string; root: Uint8Array }> =>
@@ -149,7 +147,7 @@ const eval$ = (
 ) =>
   Effect.gen(function* () {
     const root = yield* entryPointWithArgs(script, args)
-    const ctx = evalContext(script, costParams, logger)
+    const ctx = evalContext(script.version, costParams, logger)
 
     return Cek.eval(root, ctx)
   })
@@ -163,7 +161,7 @@ export const evalWithCapture = (
 ) =>
   Effect.gen(function* () {
     const root = yield* entryPointWithArgs(script, args)
-    const ctx = evalContext(script, costParams, logger)
+    const ctx = evalContext(script.version, costParams, logger)
 
     return Cek.evalWithCapture(root, {
       ...ctx,
@@ -172,11 +170,11 @@ export const evalWithCapture = (
   })
 
 function evalContext(
-  script: Script,
+  version: Version,
   costParams: readonly number[] | undefined,
   logger: Cek.Logger | undefined
 ): Cek.EvalContext {
-  switch (script.version) {
+  switch (version) {
     case 1:
       return {
         builtins: Builtins.V1,
@@ -203,7 +201,7 @@ function entryPointWithArgs(
   args: readonly Value.Value[] | undefined
 ) {
   return Effect.gen(function* () {
-    let root = yield* entryPoint(script)
+    let root = yield* Term.decodeRoot(script.root)
 
     if (args !== undefined) {
       if (args.length == 0) {
@@ -221,7 +219,7 @@ function entryPointWithArgs(
 
 export const apply = (script: Script, args: readonly Value.Value[]) =>
   Effect.gen(function* () {
-    let rootTerm = yield* entryPoint(script)
+    let rootTerm = yield* Term.decodeRoot(script.root)
 
     for (const arg of args) {
       rootTerm = {
@@ -237,10 +235,7 @@ export const apply = (script: Script, args: readonly Value.Value[]) =>
     }
 
     if (script.verbose) {
-      let verboseRootTerm = yield* entryPoint({
-        ...script,
-        root: script.verbose
-      })
+      let verboseRootTerm = yield* Term.decodeRoot(script.verbose)
 
       for (const arg of args) {
         verboseRootTerm = {
@@ -264,7 +259,7 @@ export const apply = (script: Script, args: readonly Value.Value[]) =>
 
 export const extractParams = (script: Script) =>
   Effect.gen(function* () {
-    let term = yield* entryPoint(script)
+    let term = yield* Term.decodeRoot(script.root)
 
     const params: Value.Value[] = []
 

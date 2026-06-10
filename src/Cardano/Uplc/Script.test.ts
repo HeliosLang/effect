@@ -1,17 +1,18 @@
 import { describe, expect, it } from "bun:test"
-import { Effect, Either } from "effect"
+import { Either } from "effect"
 import { runSync } from "effect/Effect"
 import * as Bytes from "../../Codecs/Bytes.js"
 import * as Cek from "./Cek.js"
 import * as Cost from "./Cost.js"
 import * as Script from "./Script.js"
+import * as Term from "./Term.js"
 import * as Type from "./Type.js"
 
 describe("Uplc.Script.decodeRoot", () => {
   it("is able to decode simple v1 script", () => {
     runSync(
       Script.decode(1)("4e4d01000033222220051200120011").pipe(
-        Effect.flatMap(Script.entryPoint)
+        Either.flatMap((script) => Term.decodeRoot(script.root))
       )
     )
   })
@@ -20,7 +21,7 @@ describe("Uplc.Script.decodeRoot", () => {
     runSync(
       Script.decode(1)(
         "581e581c01000033223232222350040071235002353003001498498480048005"
-      ).pipe(Effect.flatMap(Script.entryPoint))
+      ).pipe(Either.flatMap((script) => Term.decodeRoot(script.root)))
     )
   })
 })

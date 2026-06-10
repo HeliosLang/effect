@@ -1,6 +1,8 @@
 import { Either, Schema } from "effect"
 import * as Bytes from "../../Codecs/Bytes.js"
+import * as Cbor from "../../Codecs/Cbor.js"
 import * as Flat from "../../Codecs/Flat.js"
+import * as Metadata from "./Metadata.js"
 import * as Type from "./Type.js"
 import * as Value from "./Value.js"
 
@@ -25,6 +27,8 @@ const SuspendedTerm = Schema.suspend((): Schema.Schema<Term, Term> => Term)
 export const Apply = Schema.TaggedStruct("Apply", {
   fn: SuspendedTerm,
   arg: SuspendedTerm,
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
@@ -32,22 +36,35 @@ export type Apply = {
   _tag: "Apply"
   fn: Term
   arg: Term
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
 }
 
 const Builtin$ = Schema.TaggedStruct("Builtin", {
   id: Schema.Int, // TODO: also constrain to be positive
   name: Schema.optional(Schema.String), // though is redundant information, it is much easier to keep track of this here for debugging purposes
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
-type Builtin$ = Schema.Schema.Type<typeof Builtin$>
+type Builtin$ = {
+  _tag: "Builtin",
+  id: number,
+  name?: string | undefined,
+  capture?: string | undefined,
+  description?: string | undefined,
+  sourceSpan?: SourceSpan | undefined
+}
 
 export { Builtin$ as Builtin }
 
 export const Case = Schema.TaggedStruct("Case", {
   arg: SuspendedTerm,
   cases: Schema.Array(SuspendedTerm),
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
@@ -55,20 +72,34 @@ export type Case = {
   _tag: "Case"
   arg: Term
   cases: readonly Term[]
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
 }
 
 export const Const = Schema.TaggedStruct("Const", {
   value: Value.Value,
   name: Schema.optional(Schema.String),
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
-export type Const = Schema.Schema.Type<typeof Const>
+export type Const = {
+  _tag: "Const",
+  value: Value.Value,
+  name?: string | undefined,
+  capture?: string | undefined,
+  description?: string | undefined,
+  sourceSpan?: SourceSpan | undefined
+} 
+
 
 export const Constr = Schema.TaggedStruct("Constr", {
   tag: Schema.Int,
   args: Schema.Array(SuspendedTerm),
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
@@ -76,43 +107,63 @@ export type Constr = {
   _tag: "Constr"
   tag: number
   args: readonly Term[]
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
 }
 
 export const Delay = Schema.TaggedStruct("Delay", {
   arg: SuspendedTerm,
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
 export type Delay = {
   _tag: "Delay"
   arg: Term
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
   name?: string | undefined
 }
 
 const Error$ = Schema.TaggedStruct("Error", {
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
-type Error$ = Schema.Schema.Type<typeof Error$>
+type Error$ = {
+  _tag: "Error",
+  capture?: string | undefined,
+  description?: string | undefined,
+  sourceSpan?: SourceSpan | undefined
+}
 
 export { Error$ as Error }
 
 export const Force = Schema.TaggedStruct("Force", {
   arg: SuspendedTerm,
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
 export type Force = {
   _tag: "Force"
   arg: Term
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
 }
 
 export const Lambda = Schema.TaggedStruct("Lambda", {
   body: SuspendedTerm,
   argName: Schema.optional(Schema.String),
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan),
   name: Schema.optional(Schema.String)
 })
@@ -121,6 +172,8 @@ export type Lambda = {
   _tag: "Lambda"
   body: Term
   argName?: string | undefined
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
   name?: string | undefined
 }
@@ -128,10 +181,19 @@ export type Lambda = {
 export const Var = Schema.TaggedStruct("Var", {
   index: Schema.Int, // TODO: also constrain to be positive?
   name: Schema.optional(Schema.String),
+  capture: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
   sourceSpan: Schema.optional(SourceSpan)
 })
 
-export type Var = Schema.Schema.Type<typeof Var>
+export type Var = {
+  _tag: "Var",
+  index: number,
+  name?: string | undefined,
+  capture?: string | undefined,
+  description?: string | undefined,
+  sourceSpan?: SourceSpan | undefined
+}
 
 export const Term = Schema.Union(
   Apply,
@@ -226,7 +288,7 @@ export function flatTag(term: Term): number {
   }
 }
 
-export const decodeRoot = (bytes: Bytes.BytesLike) => {
+const decodeFlatBytes = (bytes: Bytes.BytesLike) => {
   const r = Flat.makeReader(Bytes.toUint8Array(bytes))
 
   void `${r.readInt()}.${r.readInt()}.${r.readInt()}`
@@ -234,9 +296,64 @@ export const decodeRoot = (bytes: Bytes.BytesLike) => {
   return decode({})(r)
 }
 
+/**
+ * Verbose encoding format:
+ * 
+ * {
+ *   0: CBORBytes(root flat bytes (i.e. what would be returned if verbose == false)),
+ *   1: {
+ *     0: CBORList<String> (source names list),
+ *     1: CBORList<Int> (flattened source mapping tuples [termIndex, sourceIndex, startLine, startColumn, endLine, endColumn], endLine==-1 and endColumn==-1 means absence of end of sourceSpan, sourceIndex is the index in the source names list),
+ *     2: CBORMap<Int, String> (lambda arg names, key is term index)
+ *     3: CBORMap<Int, String> (term names, key is term index)
+ *     4: CBORMap<Int, String> (term descriptions, key is termIndex)
+ *     5: CBORMap<Int, String> (capture names/ids, key is termIndex)
+ *   } 
+ * }
+ */
+
+export const decodeRoot = (bytes: Bytes.BytesLike): Either.Either<Term, Error> => {
+  if (!Cbor.isMap(bytes)) {
+    return decodeFlatBytes(bytes)
+  } else {
+    return Cbor.decodeObjectIKey({
+      0: Cbor.decodeBytes,
+      1: Metadata.decode
+    })(bytes).pipe(Either.flatMap(({0: rootFlatBytes, 1: metadata}) => {
+      if (!rootFlatBytes) {
+        return Either.left(
+          new Cbor.DecodeError(
+            Bytes.makeStream(bytes),
+            "Entry 0 missing from verbose UPLC encoding"
+          )
+        )
+      }
+
+      return decodeFlatBytes(rootFlatBytes).pipe(Either.map(ast => {
+        if (metadata) {
+          Metadata.apply(ast, metadata)
+        }
+
+        return ast
+      }))
+    }))
+  }
+}
+
+/**
+ * @param uplcVersion 
+ * @param term 
+ * @param verbose 
+ * Optional, defaults to false.
+ * Note that if verbose==true but metadata is empty, the plain flat encoded program without metadata is still returned
+ * 
+ * @returns
+ * The encoded program 
+ */
 export const encodeRoot = (
   uplcVersion: "1.0.0" | "1.1.0",
-  term: Term
+  term: Term,
+  verbose: boolean = false
 ): Uint8Array => {
   const w = Flat.makeWriter()
 
@@ -246,7 +363,22 @@ export const encodeRoot = (
 
   encode(w)(term)
 
-  return Bytes.toUint8Array(w.finalize())
+  const rootFlatBytes = Bytes.toUint8Array(w.finalize())
+  
+  if (verbose) {
+    const metadata = Metadata.fromRootTerm(term)
+    
+    if (!Metadata.isEmpty(metadata)) {
+      return Bytes.toUint8Array(
+        Cbor.encodeObjectIKey({
+          0: Cbor.encodeBytes(rootFlatBytes),
+          1: Metadata.encode(metadata)
+        })
+      )
+    }
+  }
+
+  return rootFlatBytes
 }
 
 /**
@@ -541,7 +673,9 @@ export const encode =
 export function toString(term: Term): string {
   switch (term._tag) {
     case "Apply":
-      return `[${toString(term.fn)} ${toString(term.arg)}]`
+      return `[${toString(term.fn)} ${toString(term.arg)}${
+        term.capture !== undefined ? ` #capture=${term.capture}` : ""
+      }]`
     case "Builtin":
       return `(builtin ${term.id.toString()})`
     case "Case":
