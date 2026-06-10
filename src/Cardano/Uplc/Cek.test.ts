@@ -114,15 +114,7 @@ describe("Cek.eval()", () => {
           name: "__helios_capture:quotient"
         },
         callSite: {
-          sourceSpan: undefined,
-          functionName: undefined,
-          arguments: [
-            {
-              _tag: "Const",
-              value: 42n,
-              name: "__helios_capture:quotient"
-            }
-          ]
+          sourceSpan: undefined
         }
       }
     ])

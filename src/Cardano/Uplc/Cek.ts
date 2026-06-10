@@ -43,7 +43,7 @@ export interface MachineContext extends EvalContext {
   //getBuiltin(id: number): Builtin | undefined
   print(message: string, site?: CallSite): void
   popLastMessage(): string | undefined
-  captureValue(id: string, value: Value, callSite?: CallSite | undefined): void
+  captureValue(id: string, value: Value, callSite?: CallSite): void
 }
 
 /**
@@ -1084,13 +1084,15 @@ function reduceApplyToFrame(
       name: info.argName
     }
 
-    const capturePrefix = ctx.capture?.prefix ?? "__helios_capture:"
-    if (info.argName.startsWith(capturePrefix)) {
-      ctx.captureValue(
-        info.argName.slice(capturePrefix.length),
-        rightValue,
-        info.callSite
-      )
+    if (ctx.capture !== undefined) {
+      const capturePrefix = ctx.capture.prefix ?? "__helios_capture:"
+      if (info.argName.startsWith(capturePrefix)) {
+        ctx.captureValue(
+          info.argName.slice(capturePrefix.length),
+          rightValue,
+          info.callSite
+        )
+      }
     }
   }
 
