@@ -148,6 +148,61 @@ const eval$ = (
   logger: Cek.Logger | undefined = undefined
 ) =>
   Effect.gen(function* () {
+    const root = yield* entryPointWithArgs(script, args)
+    const ctx = evalContext(script, costParams, logger)
+
+    return Cek.eval(root, ctx)
+  })
+
+export const evalWithCapture = (
+  script: Script,
+  args: readonly Value.Value[] | undefined,
+  costParams: readonly number[] | undefined = undefined,
+  logger: Cek.Logger | undefined = undefined,
+  capture: Cek.CaptureConfig = {}
+) =>
+  Effect.gen(function* () {
+    const root = yield* entryPointWithArgs(script, args)
+    const ctx = evalContext(script, costParams, logger)
+
+    return Cek.evalWithCapture(root, {
+      ...ctx,
+      capture
+    })
+  })
+
+function evalContext(
+  script: Script,
+  costParams: readonly number[] | undefined,
+  logger: Cek.Logger | undefined
+): Cek.EvalContext {
+  switch (script.version) {
+    case 1:
+      return {
+        builtins: Builtins.V1,
+        costParams: costParams ?? Cost.PARAMS_V1_CONWAY,
+        logger
+      }
+    case 2:
+      return {
+        builtins: Builtins.V2,
+        costParams: costParams ?? Cost.PARAMS_V2_CONWAY,
+        logger
+      }
+    case 3:
+      return {
+        builtins: Builtins.V3,
+        costParams: costParams ?? Cost.PARAMS_V3_CONWAY,
+        logger
+      }
+  }
+}
+
+function entryPointWithArgs(
+  script: Script,
+  args: readonly Value.Value[] | undefined
+) {
+  return Effect.gen(function* () {
     let root = yield* entryPoint(script)
 
     if (args !== undefined) {
@@ -160,31 +215,9 @@ const eval$ = (
       }
     }
 
-    const ctx: Cek.EvalContext = (() => {
-      switch (script.version) {
-        case 1:
-          return {
-            builtins: Builtins.V1,
-            costParams: costParams ?? Cost.PARAMS_V1_CONWAY,
-            logger
-          }
-        case 2:
-          return {
-            builtins: Builtins.V2,
-            costParams: costParams ?? Cost.PARAMS_V2_CONWAY,
-            logger
-          }
-        case 3:
-          return {
-            builtins: Builtins.V3,
-            costParams: costParams ?? Cost.PARAMS_V3_CONWAY,
-            logger
-          }
-      }
-    })()
-
-    return Cek.eval(root, ctx)
+    return root
   })
+}
 
 export const apply = (script: Script, args: readonly Value.Value[]) =>
   Effect.gen(function* () {

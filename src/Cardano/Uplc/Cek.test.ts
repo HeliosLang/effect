@@ -74,4 +74,57 @@ describe("Cek.eval()", () => {
     expect(Either.getOrThrow(value)).toEqual({ _tag: "Const", value: 55n })
     expect(cost).toEqual({ cpu: 1860485n, mem: 3710n })
   })
+
+  it("captures only marked lambda arguments when capture is enabled", () => {
+    const term: Term.Term = {
+      _tag: "Apply",
+      fn: {
+        _tag: "Lambda",
+        argName: "__helios_capture:quotient",
+        body: {
+          _tag: "Apply",
+          fn: {
+            _tag: "Lambda",
+            argName: "plain",
+            body: { _tag: "Var", index: 2 }
+          },
+          arg: { _tag: "Const", value: 7n }
+        }
+      },
+      arg: { _tag: "Const", value: 42n }
+    }
+
+    const normal = Cek.eval(term, {
+      builtins: Builtins.V1,
+      costParams: Cost.PARAMS_V1_BABBAGE
+    })
+    const captured = Cek.evalWithCapture(term, {
+      builtins: Builtins.V1,
+      costParams: Cost.PARAMS_V1_BABBAGE
+    })
+
+    expect(normal.captured).toEqual([])
+    expect(captured.captured).toEqual([
+      {
+        index: 0,
+        id: "quotient",
+        value: {
+          _tag: "Const",
+          value: 42n,
+          name: "__helios_capture:quotient"
+        },
+        callSite: {
+          sourceSpan: undefined,
+          functionName: undefined,
+          arguments: [
+            {
+              _tag: "Const",
+              value: 42n,
+              name: "__helios_capture:quotient"
+            }
+          ]
+        }
+      }
+    ])
+  })
 })

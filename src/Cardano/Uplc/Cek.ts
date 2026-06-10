@@ -21,6 +21,18 @@ export type EvalContext = {
   builtins: readonly Builtin[]
   costParams: readonly number[]
   logger?: Logger | undefined
+  capture?: CaptureConfig | undefined
+}
+
+export type CaptureConfig = {
+  prefix?: string | undefined
+}
+
+export type CapturedValue = {
+  index: number
+  id: string
+  value: Value
+  callSite?: CallSite | undefined
 }
 
 /**
@@ -31,6 +43,7 @@ export interface MachineContext extends EvalContext {
   //getBuiltin(id: number): Builtin | undefined
   print(message: string, site?: CallSite): void
   popLastMessage(): string | undefined
+  captureValue(id: string, value: Value, callSite?: CallSite | undefined): void
 }
 
 /**
@@ -334,11 +347,12 @@ type CaseScrutineeFrame = {
 /**
  * Return value is optional and can be omitted if the UplcValue doesn't suffice to contain it (eg. lambda functions).
  */
-type Result = {
+export type Result = {
   value: Either.Either<Value, { error: string; callSites: CallSite[] }>
   cost: Cost.Cost
   logs: { message: string; callSite?: CallSite | undefined }[]
   breakdown: Cost.Breakdown
+  captured: CapturedValue[]
 }
 
 /**
@@ -353,6 +367,7 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
     Cost.makeModel(evalContext.costParams, evalContext.builtins)
   )
   const logs: { message: string; callSite?: CallSite | undefined }[] = []
+  const captured: CapturedValue[] = []
 
   // initialize the machine state
   let state: State = {
@@ -377,6 +392,14 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
     },
     popLastMessage: () => {
       return logs.pop()?.message
+    },
+    captureValue: (id: string, value: Value, callSite?: CallSite) => {
+      captured.push({
+        index: captured.length,
+        id,
+        value,
+        callSite
+      })
     }
   }
 
@@ -466,7 +489,8 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
         cpu: tracker.cpu
       },
       logs: logs,
-      breakdown: tracker.breakdown
+      breakdown: tracker.breakdown,
+      captured
     }
   } else if (state.kind == "error") {
     return {
@@ -479,7 +503,8 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
         cpu: tracker.cpu
       },
       logs: logs,
-      breakdown: tracker.breakdown
+      breakdown: tracker.breakdown,
+      captured
     }
   } else {
     throw new Error(`Internal error: unexpected final state ${state.kind}`)
@@ -487,6 +512,16 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
 }
 
 export { eval$ as eval }
+
+export function evalWithCapture(
+  entryPoint: Term,
+  evalContext: Omit<EvalContext, "capture"> & { capture?: CaptureConfig | undefined }
+): Result {
+  return eval$(entryPoint, {
+    ...evalContext,
+    capture: evalContext.capture ?? {}
+  })
+}
 
 function computeApplyTerm(
   { term, stack, frames }: ComputingState<Apply>,
@@ -1047,6 +1082,15 @@ function reduceApplyToFrame(
     rightValue = {
       ...rightValue,
       name: info.argName
+    }
+
+    const capturePrefix = ctx.capture?.prefix ?? "__helios_capture:"
+    if (info.argName.startsWith(capturePrefix)) {
+      ctx.captureValue(
+        info.argName.slice(capturePrefix.length),
+        rightValue,
+        info.callSite
+      )
     }
   }
 
