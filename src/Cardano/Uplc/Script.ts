@@ -152,23 +152,6 @@ const eval$ = (
     return Cek.eval(root, ctx)
   })
 
-export const evalWithCapture = (
-  script: Script,
-  args: readonly Value.Value[] | undefined,
-  costParams: readonly number[] | undefined = undefined,
-  logger: Cek.Logger | undefined = undefined,
-  capture: Cek.CaptureConfig = {}
-) =>
-  Effect.gen(function* () {
-    const root = yield* entryPointWithArgs(script, args)
-    const ctx = evalContext(script.version, costParams, logger)
-
-    return Cek.evalWithCapture(root, {
-      ...ctx,
-      capture
-    })
-  })
-
 function evalContext(
   version: Version,
   costParams: readonly number[] | undefined,

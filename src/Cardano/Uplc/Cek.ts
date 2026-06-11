@@ -21,11 +21,6 @@ export type EvalContext = {
   builtins: readonly Builtin[]
   costParams: readonly number[]
   logger?: Logger | undefined
-  capture?: CaptureConfig | undefined
-}
-
-export type CaptureConfig = {
-  prefix?: string | undefined
 }
 
 export type CapturedValue = {
@@ -205,12 +200,19 @@ type SuccessState = {
  * `Frame`s perform CEK Machine transitions during the reduction of {@link Value}s.
  */
 type Frame =
+  | CaptureFrame
   | ForceFrame
   | LeftApplyToTermFrame
   | LeftApplyToValueFrame
   | RightApplyFrame
   | ConstrArgFrame
   | CaseScrutineeFrame
+
+type CaptureFrame = {
+  _tag: "CaptureFrame"
+  id: string
+  callSite?: CallSite | undefined
+}
 
 /**
  * `ForceFrame` represents the $(\text{force}~\_)$ frame of the *CEK Machine*.
@@ -352,7 +354,7 @@ export type Result = {
   cost: Cost.Cost
   logs: { message: string; callSite?: CallSite | undefined }[]
   breakdown: Cost.Breakdown
-  captured: CapturedValue[]
+  capturedValues: CapturedValue[]
 }
 
 /**
@@ -408,40 +410,42 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
 
   while (!["error", "success"].includes(state.kind)) {
     if (state.kind == "computing") {
-      switch (state.term._tag) {
+      const computing = enterCaptureFrame(state)
+
+      switch (computing.term._tag) {
         case "Apply":
-          state = computeApplyTerm(state as ComputingState<Apply>, ctx)
+          state = computeApplyTerm(computing as ComputingState<Apply>, ctx)
           break
         case "Builtin":
-          state = computeBuiltinTerm(state as ComputingState<BuiltinTerm>, ctx)
+          state = computeBuiltinTerm(computing as ComputingState<BuiltinTerm>, ctx)
           break
         case "Case":
-          state = computeCaseTerm(state as ComputingState<Case>, ctx)
+          state = computeCaseTerm(computing as ComputingState<Case>, ctx)
           break
         case "Const":
-          state = computeConstTerm(state as ComputingState<Const>, ctx)
+          state = computeConstTerm(computing as ComputingState<Const>, ctx)
           break
         case "Constr":
-          state = computeConstrTerm(state as ComputingState<Constr>, ctx)
+          state = computeConstrTerm(computing as ComputingState<Constr>, ctx)
           break
         case "Delay":
-          state = computeDelayTerm(state as ComputingState<Delay>, ctx)
+          state = computeDelayTerm(computing as ComputingState<Delay>, ctx)
           break
         case "Error":
-          state = computeErrorTerm(state as ComputingState<ErrorTerm>, ctx)
+          state = computeErrorTerm(computing as ComputingState<ErrorTerm>, ctx)
           break
         case "Force":
-          state = computeForceTerm(state as ComputingState<Force>, ctx)
+          state = computeForceTerm(computing as ComputingState<Force>, ctx)
           break
         case "Lambda":
-          state = computeLambdaTerm(state as ComputingState<Lambda>, ctx)
+          state = computeLambdaTerm(computing as ComputingState<Lambda>, ctx)
           break
         case "Var":
-          state = computeVarTerm(state as ComputingState<Var>, ctx)
+          state = computeVarTerm(computing as ComputingState<Var>, ctx)
           break
         default:
           throw new Error(
-            `Unhandled term kind '${(state.term as unknown as { _tag: string })._tag}'`
+            `Unhandled term kind '${(computing.term as unknown as { _tag: string })._tag}'`
           )
       }
     } else if (state.kind == "reducing") {
@@ -449,6 +453,9 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
 
       if (f) {
         switch (f._tag) {
+          case "CaptureFrame":
+            state = reduceCaptureFrame(f, state, ctx)
+            break
           case "CaseScrutineeFrame":
             state = reduceCaseScrutineeFrame(f, state)
             break
@@ -490,7 +497,7 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
       },
       logs: logs,
       breakdown: tracker.breakdown,
-      captured
+      capturedValues: captured
     }
   } else if (state.kind == "error") {
     return {
@@ -504,7 +511,7 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
       },
       logs: logs,
       breakdown: tracker.breakdown,
-      captured
+      capturedValues: captured
     }
   } else {
     throw new Error(`Internal error: unexpected final state ${state.kind}`)
@@ -513,14 +520,56 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
 
 export { eval$ as eval }
 
-export function evalWithCapture(
-  entryPoint: Term,
-  evalContext: Omit<EvalContext, "capture"> & { capture?: CaptureConfig | undefined }
-): Result {
-  return eval$(entryPoint, {
-    ...evalContext,
-    capture: evalContext.capture ?? {}
-  })
+function enterCaptureFrame<T extends Term>({
+  term,
+  stack,
+  frames
+}: ComputingState<T>): ComputingState {
+  if (term.capture === undefined) {
+    return {
+      kind: "computing",
+      term,
+      stack,
+      frames
+    }
+  }
+
+  return {
+    kind: "computing",
+    term: {
+      ...term,
+      capture: undefined
+    },
+    stack,
+    frames: frames.concat([
+      {
+        _tag: "CaptureFrame",
+        id: term.capture,
+        callSite: {
+          sourceSpan: term.sourceSpan,
+          description: term.description
+        }
+      } satisfies CaptureFrame
+    ])
+  }
+}
+
+function reduceCaptureFrame(
+  frame: CaptureFrame,
+  { frames, value }: ReducingState,
+  ctx: MachineContext
+): ReducingState {
+  ctx.captureValue(
+    frame.id,
+    value,
+    isNonEmptyCallSiteInfo(frame.callSite) ? frame.callSite : undefined
+  )
+
+  return {
+    kind: "reducing",
+    value,
+    frames
+  }
 }
 
 function computeApplyTerm(
@@ -1082,17 +1131,6 @@ function reduceApplyToFrame(
     rightValue = {
       ...rightValue,
       name: info.argName
-    }
-
-    if (ctx.capture !== undefined) {
-      const capturePrefix = ctx.capture.prefix ?? "__helios_capture:"
-      if (info.argName.startsWith(capturePrefix)) {
-        ctx.captureValue(
-          info.argName.slice(capturePrefix.length),
-          rightValue,
-          info.callSite
-        )
-      }
     }
   }
 
