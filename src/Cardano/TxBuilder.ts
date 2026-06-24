@@ -1892,11 +1892,13 @@ const balanceTx = (tx: Tx.Tx) =>
     )
     const feeAssets = { "": tx.body.fee } as Assets.Assets
     const mintedAssets = tx.body.minted
+    const depositAssets = yield* certificateDepositBalance(tx.body.dcerts)
 
     yield* Console.log("Summing assets...")
     let net = Assets.sum(
       inputAssets,
       mintedAssets,
+      depositAssets,
       Assets.negate(outputAssets),
       Assets.negate(feeAssets)
     )
@@ -1996,4 +1998,20 @@ const balanceTx = (tx: Tx.Tx) =>
     }
 
     return tx
+  })
+
+const certificateDepositBalance = (dcerts: readonly DCert.DCert[]) =>
+  Effect.gen(function* () {
+    const params = yield* Network.Params.params
+    const stakeAddrDeposit = BigInt(params.stakeAddrDeposit)
+
+    return dcerts.reduce(
+      (sum, dcert) =>
+        dcert._tag == "Deregistration"
+          ? Assets.add(sum, { "": stakeAddrDeposit })
+          : dcert._tag == "Registration"
+            ? Assets.subtract(sum, { "": stakeAddrDeposit })
+            : sum,
+      {} as Assets.Assets
+    )
   })

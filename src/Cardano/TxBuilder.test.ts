@@ -150,6 +150,74 @@ describe("can balance Tx", () => {
     expect(error.available[""] ?? 0n).toBeLessThan(error.required[""] ?? 0n)
   })
 
+  it("balances stake credential deposits for registrations", () => {
+    const addr =
+      "addr_test1vpvndky904g9whpnuae0ffsd37ysjjyu7m6avse3nqsfysqx3eg5h" as Ledger.Address.Address
+
+    const spareUTxO: Ledger.UTxO.UTxO = {
+      ref: "6c20a9ab7153e53d17a0b820b2d606b27257a1281d9365acc6d0d3cb8725ccc32" as Ledger.UTxORef.UTxORef,
+      output: {
+        address: addr,
+        assets: {
+          "": 10_000_000n
+        }
+      }
+    }
+
+    const scripts: Ledger.NativeScript.NativeScript[] = [
+      { type: "before", slot: 1 },
+      { type: "before", slot: 2 }
+    ]
+
+    const program = Effect.gen(function* () {
+      const tx: Ledger.Tx.Tx = yield* TxBuilder.start.pipe(
+        TxBuilder.registerEffect({
+          _tag: "Validator",
+          hash: Ledger.NativeScript.hash(scripts[0])
+        }),
+        TxBuilder.registerEffect({
+          _tag: "Validator",
+          hash: Ledger.NativeScript.hash(scripts[1])
+        }),
+        Effect.flatMap(TxBuilder.build())
+      )
+
+      yield* Ledger.Tx.validate({ strict: true })(tx)
+
+      const inputLovelace = Ledger.UTxO.sumAssets(...tx.body.inputs)[""] ?? 0n
+      const outputLovelace =
+        Ledger.TxOutput.sumAssets(...tx.body.outputs)[""] ?? 0n
+      const registrationDeposits =
+        2n * BigInt(testParams.stakeAddrDeposit)
+
+      expect(inputLovelace - outputLovelace - tx.body.fee).toEqual(
+        registrationDeposits
+      )
+    })
+
+    const result = Effect.runSync(
+      program.pipe(
+        Effect.provideService(Wallet.Balancing, {
+          changeAddress: Effect.succeed(addr),
+          utxos: Effect.succeed([spareUTxO]),
+          signTx: () => Effect.succeed([])
+        }),
+        Effect.provideService(TxBuilder.GetDatum, (h) =>
+          Effect.fail(new TxBuilder.DatumNotFound(h))
+        ),
+        Effect.provideService(Network.IsMainnet, false),
+        Effect.provideService(Network.Params.params, testParams),
+        Effect.provideService(Network.UTxO, (ref) =>
+          ref == spareUTxO.ref
+            ? Effect.succeed(spareUTxO)
+            : Effect.fail(new Network.UTxONotFound(ref))
+        )
+      )
+    )
+
+    expect(result).toBeUndefined()
+  })
+
   it("auto-selects local collateral for smart txs", () => {
     const addr =
       "addr_test1vpvndky904g9whpnuae0ffsd37ysjjyu7m6avse3nqsfysqx3eg5h" as Ledger.Address.Address
