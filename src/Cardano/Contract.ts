@@ -99,6 +99,20 @@ const $utxos = () =>
       })
   })
 
+const stateUTxO = () =>
+  Effect.gen(function* () {
+    const vh = yield* hash
+
+    const [utxo] = (yield* $utxos()).filter(utxo => (utxo.output.assets[vh] ?? 0n) > 0n)
+
+    if (utxo === undefined) {
+      return yield* Effect.fail(new Error("Couldn't find contract state UTxO"))
+    }
+
+    return utxo
+  })
+
+
 export { $utxos as utxos }
 
 export const init = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
@@ -181,11 +195,7 @@ export const addWitness = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
     const nft: Assets.Assets = { [vh]: 1n }
     const address = yield* Address.script(vh)
 
-    const [utxo] = yield* $utxos()
-
-    if (utxo === undefined) {
-      return yield* Effect.fail(new Error("Couldn't find contract state UTxO"))
-    }
+    const utxo = yield* stateUTxO()
 
     const inputWitnesses: readonly Witness[] = yield* Schema.decodeUnknown(
       WitnessesFromUplcData
@@ -249,11 +259,7 @@ export const removeWitness = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
     const nft: Assets.Assets = { [vh]: 1n }
     const address = yield* Address.script(vh)
 
-    const [utxo] = yield* $utxos()
-
-    if (utxo === undefined) {
-      return yield* Effect.fail(new Error("Couldn't find contract state UTxO"))
-    }
+    const utxo = yield* stateUTxO()
 
     const inputWitnesses = yield* Schema.decodeUnknown(WitnessesFromUplcData)(
       utxo.output.datum
@@ -286,6 +292,41 @@ export const removeWitness = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
 
 export const removeWitnessEffect = (witness: Witness) =>
   Effect.flatMap(removeWitness(witness))
+
+export const updateWitnesses = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
+  Effect.gen(function* () {
+    const contract = yield* Contract
+    
+    const vh = yield* hash
+    const nft: Assets.Assets = { [vh]: 1n }
+    const address = yield* Address.script(vh)
+    
+    const utxo = yield* stateUTxO()
+
+    const inputWitnesses = yield* Schema.decodeUnknown(WitnessesFromUplcData)(
+      utxo.output.datum
+    )
+
+    b = TxBuilder.attachScript(contract)(b)
+    b = yield* TxBuilder.spend({ dedupe: "fail" })(
+      utxo,
+      buildUpdateRedeemer(vh, address, utxo.ref, inputWitnesses)
+    )(b)
+
+    // create the output
+    b = yield* TxBuilder.pay({
+      address,
+      assets: nft,
+      datum: yield* Schema.encode(WitnessesFromUplcData)(
+        witnesses
+      )
+    })(b)
+
+    return b
+  })
+
+export const updateWitnessesEffect = (witnesses: Witness[]) =>
+  Effect.flatMap(updateWitnesses(witnesses))
 
 export const mint = (assets: Assets.Assets) => (b: TxBuilder.TxBuilder) =>
   Effect.gen(function* () {
