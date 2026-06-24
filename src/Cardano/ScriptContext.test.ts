@@ -4,8 +4,10 @@ import * as Address from "./Ledger/Address.js"
 import * as Assets from "./Ledger/Assets.js"
 import { hash as hashDatum } from "./Ledger/DatumHash.js"
 import * as Tx from "./Ledger/Tx.js"
+import * as RewardAddress from "./Ledger/RewardAddress.js"
 import * as UTxO from "./Ledger/UTxO.js"
 import * as UTxORef from "./Ledger/UTxORef.js"
+import type * as ValidatorHash from "./Ledger/ValidatorHash.js"
 import * as Network from "./Network/index.js"
 import { testParams } from "./Network/Params.js"
 import { CurrentTx, PurposeV3, TxInfoV3 } from "./ScriptContext.js"
@@ -23,7 +25,10 @@ const makeTxInfoV3 = (tx: Tx.Tx) =>
       fee: tx.body.fee,
       minted: tx.body.minted,
       dcerts: tx.body.dcerts,
-      withdrawals: tx.body.withdrawals,
+      withdrawals: tx.body.withdrawals.map(([address, lovelace]) => [
+        RewardAddress.credential(address),
+        lovelace
+      ]),
       validityTimeRange: {
         firstValidSlot: tx.body.firstValidSlot,
         lastValidSlot: tx.body.lastValidSlot
@@ -89,5 +94,75 @@ describe("Cardano.ScriptContext.TxInfoV3", () => {
     expect(txInfoData.fields[13]).toHaveProperty("list") // proposalProcedures
     expect(txInfoData.fields[14]).toHaveProperty("fields") // currentTreasuryAmount
     expect(txInfoData.fields[15]).toHaveProperty("fields") // treasuryDonation
+  })
+
+  it("encodes rewarding credentials without reward address wrappers", () => {
+    const scriptHash = "5b656cb953602f8a7302e6404aca1f2978966a4aacfd2d0de490c6e9"
+    const rewardAddress = Effect.runSync(
+      RewardAddress.script(scriptHash as ValidatorHash.ValidatorHash).pipe(
+        Effect.provideService(Network.IsMainnet, false)
+      )
+    )
+    const tx: Tx.Tx = {
+      ...Tx.empty,
+      body: {
+        ...Tx.empty.body,
+        withdrawals: [[rewardAddress, 0n]]
+      },
+      witnesses: {
+        ...Tx.empty.witnesses,
+        redeemers: [
+          {
+            _tag: "Rewarding",
+            withdrawalIndex: 0,
+            data: { int: 0n },
+            cost: { cpu: 0n, mem: 0n }
+          }
+        ]
+      }
+    }
+
+    const txInfoData = Effect.runSync(
+      makeTxInfoV3(tx).pipe(
+        Effect.provideService(Network.IsMainnet, false),
+        Effect.provideService(Network.Params.params, testParams)
+      )
+    )
+    const [purposeData] = Effect.runSync(
+      Effect.all(tx.witnesses.redeemers.map((r) => Schema.encode(PurposeV3)(r))).pipe(
+        Effect.provideService(CurrentTx, tx)
+      )
+    )
+
+    if (!("fields" in txInfoData)) {
+      throw new Error(`txInfoData isn't an enum variant with fields`)
+    }
+
+    const withdrawals = txInfoData.fields[6]
+    if (!("map" in withdrawals)) {
+      throw new Error("withdrawals field isn't a map")
+    }
+
+    const withdrawalKey = withdrawals.map[0]?.k
+    if (withdrawalKey === undefined || !("fields" in withdrawalKey)) {
+      throw new Error("withdrawal key isn't a constructor")
+    }
+
+    expect(withdrawalKey.constructor).toBe(1)
+    expect(withdrawalKey.fields[0]).toHaveProperty("bytes")
+    expect(withdrawals.map[0]?.v).toEqual({ int: 0n })
+
+    if (!("fields" in purposeData)) {
+      throw new Error("rewarding purpose isn't a constructor")
+    }
+
+    const purposeCredential = purposeData.fields[0]
+    if (!("fields" in purposeCredential)) {
+      throw new Error("rewarding purpose credential isn't a constructor")
+    }
+
+    expect(purposeData.constructor).toBe(2)
+    expect(purposeCredential.constructor).toBe(1)
+    expect(purposeCredential.fields[0]).toHaveProperty("bytes")
   })
 })

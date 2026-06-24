@@ -12,7 +12,11 @@ import {
 import { FromUplcData as DCertFromUplcData } from "./Ledger/DCert.js"
 import { FromUplcData as PubKeyHashFromUplcData } from "./Ledger/PubKeyHash.js"
 import { Redeemer } from "./Ledger/Redeemer.js"
-import { FromUplcData as RewardAddressFromUplcData } from "./Ledger/RewardAddress.js"
+import {
+  FromUplcData as RewardAddressFromUplcData,
+  credential as rewardAddressCredential
+} from "./Ledger/RewardAddress.js"
+import { FromUplcData as CredentialFromUplcData } from "./Ledger/Credential.js"
 import { type Tx, hash as hashTx, inputDatum } from "./Ledger/Tx.js"
 import {
   FromUplcData as TxHashFromUplcData,
@@ -127,7 +131,7 @@ export const TxInfoV3 = Data.EnumVariant(0, {
   fee: LovelaceFromData,
   minted: AssetsFromUplcData(true),
   dcerts: Data.Array(DCertFromUplcData),
-  withdrawals: Data.PairArray(RewardAddressFromUplcData, Data.BigInt),
+  withdrawals: Data.PairArray(CredentialFromUplcData, Data.BigInt),
   validityTimeRange: ValiditySlotRange,
   signers: Data.Array(PubKeyHashFromUplcData),
   redeemers: Data.PairArray(Data.Data, Data.Data),
@@ -220,7 +224,7 @@ export const PurposeV3 = Schema.transformOrFail(
       datum: Data.Option(Data.Data)
     },
     Rewarding: {
-      address: RewardAddressFromUplcData
+      credential: CredentialFromUplcData
     },
     Certifying: {
       dcert: DCertFromUplcData
@@ -256,7 +260,9 @@ export const PurposeV3 = Schema.transformOrFail(
             case "Rewarding":
               return {
                 _tag: "Rewarding" as const,
-                address: tx.body.withdrawals[redeemer.withdrawalIndex][0]
+                credential: rewardAddressCredential(
+                  tx.body.withdrawals[redeemer.withdrawalIndex][0]
+                )
               }
             case "Certifying":
               return {
@@ -342,7 +348,10 @@ const makeArgsV3 = (tx: Tx, redeemerIndex: number) =>
       fee: tx.body.fee,
       minted: tx.body.minted,
       dcerts: tx.body.dcerts,
-      withdrawals: tx.body.withdrawals,
+      withdrawals: tx.body.withdrawals.map(([address, lovelace]) => [
+        rewardAddressCredential(address),
+        lovelace
+      ]),
       validityTimeRange: {
         firstValidSlot: tx.body.firstValidSlot,
         lastValidSlot: tx.body.lastValidSlot
