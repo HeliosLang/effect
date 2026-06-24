@@ -370,3 +370,37 @@ describe("Uplc.DataSchema.Enum", () => {
     ).toThrow()
   })
 })
+
+const largeInt = 6610121099553669211n
+
+describe("large int encoding/decoding", () => {
+  it("encodes BigInt values above Number.MAX_SAFE_INTEGER", () => {
+    expect(Schema.encodeSync(Data.BigInt)(largeInt)).toEqual({ int: largeInt })
+  })
+
+  it("decodes nested ListData with large BigInt values", () => {
+    expect(
+      Schema.decodeSync(Data.Array(Data.BigInt))({
+        list: [{ int: largeInt }]
+      })
+    ).toEqual([largeInt])
+  })
+
+  it("encodes EnumVariant fields with large BigInt values", () => {
+    const Datum = Data.EnumVariant(0, {
+      recipientHash: Data.BigInt,
+      encodedAction: Data.ByteArray
+    })
+
+    const encoded = Schema.encodeSync(Datum)({
+      recipientHash: largeInt,
+      encodedAction: new Uint8Array(32)
+    })
+
+    expect(encoded).toEqual({
+      constructor: 0,
+      fields: [{ int: largeInt }, { bytes: new Uint8Array(32) }]
+    })
+  })
+})
+  

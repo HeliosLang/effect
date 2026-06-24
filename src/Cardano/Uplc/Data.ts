@@ -10,11 +10,20 @@ const SuspendedDataFromJSON = Schema.suspend(
   (): Schema.Schema<Data, DataJSON> => DataFromJSON
 )
 
+const SuspendedData = Schema.suspend(
+  (): Schema.Schema<Data, Data> => Data
+)
+
 export const ByteArrayDataFromJSON = Schema.Struct({
   bytes: Schema.Uint8ArrayFromHex
 })
 
-export type ByteArrayData = Schema.Schema.Type<typeof ByteArrayDataFromJSON>
+export const ByteArrayData = Schema.Struct({
+  bytes: Schema.Uint8ArrayFromSelf
+})
+
+export type ByteArrayData = Schema.Schema.Type<typeof ByteArrayData>
+
 export type ByteArrayDataJSON = Schema.Schema.Encoded<
   typeof ByteArrayDataFromJSON
 >
@@ -34,7 +43,12 @@ export const IntDataFromJSON = Schema.Struct({
   int: Schema.BigIntFromNumber
 })
 
-export type IntData = Schema.Schema.Type<typeof IntDataFromJSON>
+export const IntData = Schema.Struct({
+  int: Schema.BigIntFromSelf
+})
+
+export type IntData = Schema.Schema.Type<typeof IntData>
+
 export type IntDataJSON = Schema.Schema.Encoded<typeof IntDataFromJSON>
 
 export function makeIntData(value: number | bigint): IntData {
@@ -51,6 +65,10 @@ export function makeIntData(value: number | bigint): IntData {
 
 export const ListDataFromJSON = Schema.Struct({
   list: Schema.Array(SuspendedDataFromJSON)
+})
+
+export const ListData = Schema.Struct({
+  list: Schema.Array(SuspendedData)
 })
 
 /**
@@ -75,6 +93,15 @@ export const MapDataFromJSON = Schema.Struct({
     Schema.Struct({
       k: SuspendedDataFromJSON,
       v: SuspendedDataFromJSON
+    })
+  )
+})
+
+export const MapData = Schema.Struct({
+  map: Schema.Array(
+    Schema.Struct({
+      k: SuspendedData,
+      v: SuspendedData
     })
   )
 })
@@ -105,6 +132,11 @@ export function makeMapData(entries: [Data, Data][]): MapData {
 export const ConstrDataFromJSON = Schema.Struct({
   constructor: Schema.Number,
   fields: Schema.Array(SuspendedDataFromJSON)
+})
+
+export const ConstrData = Schema.Struct({
+  constructor: Schema.Number,
+  fields: Schema.Array(SuspendedData)
 })
 
 /**
@@ -138,7 +170,13 @@ export const DataFromJSON = Schema.Union(
   ConstrDataFromJSON
 )
 
-export const Data = Schema.typeSchema(DataFromJSON)
+export const Data = Schema.Union(
+  ByteArrayData,
+  IntData,
+  ListData,
+  MapData,
+  ConstrData
+)
 
 /**
  * Must be defined explicitly to avoid circular reference problems
