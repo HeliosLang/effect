@@ -404,7 +404,8 @@ export const sliceByteStringV1: Builtin = {
       Either.map(([a, b, bytes]) => {
         const start = Math.max(Number(a), 0)
         const end = Math.min(start + Number(b) - 1, bytes.length - 1)
-        const value = end < start ? new Uint8Array([]) : bytes.slice(start, end + 1)
+        const value =
+          end < start ? new Uint8Array([]) : bytes.slice(start, end + 1)
 
         return { _tag: "Const", value }
       })
@@ -495,7 +496,10 @@ export const lessThanByteStringV1: Builtin = {
   memModel: Cost.Constant(87),
   call: ([a, b]: CekValue[]) => {
     return Either.all([expectBytes(a, 0), expectBytes(b, 1)]).pipe(
-      Either.map(([a, b]) => ({ _tag: "Const", value: Bytes.compare(a, b) == -1 }))
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: Bytes.compare(a, b) == -1
+      }))
     )
   }
 }
@@ -514,7 +518,10 @@ export const lessThanEqualsByteStringV1: Builtin = {
   memModel: Cost.Constant(90),
   call: ([a, b]: CekValue[]) => {
     return Either.all([expectBytes(a, 0), expectBytes(b, 1)]).pipe(
-      Either.map(([a, b]) => ({ _tag: "Const", value: Bytes.compare(a, b) <= 0 }))
+      Either.map(([a, b]) => ({
+        _tag: "Const",
+        value: Bytes.compare(a, b) <= 0
+      }))
     )
   }
 }
@@ -603,7 +610,12 @@ export const verifyEd25519SignatureV1: Builtin = {
       Either.flatMap(([pk, message, signature]) => {
         if (pk.length != 32) {
           return Either.left(
-            new InvalidLength("verifyEd25519Signature", "publicKey", 32, pk.length)
+            new InvalidLength(
+              "verifyEd25519Signature",
+              "publicKey",
+              32,
+              pk.length
+            )
           )
         }
 
@@ -620,7 +632,9 @@ export const verifyEd25519SignatureV1: Builtin = {
 
         return Either.right({
           _tag: "Const",
-          value: Either.getOrThrow(Crypto.Ed25519.verify(signature, message, pk))
+          value: Either.getOrThrow(
+            Crypto.Ed25519.verify(signature, message, pk)
+          )
         })
       })
     )
@@ -835,7 +849,9 @@ export const chooseListV1: Builtin = {
       throw new Error("b is undefined in chooseList()")
     }
 
-    return expectList(lst, 0).pipe(Either.map((lst) => (lst.items.length == 0 ? a : b)))
+    return expectList(lst, 0).pipe(
+      Either.map((lst) => (lst.items.length == 0 ? a : b))
+    )
   }
 }
 
@@ -1164,7 +1180,11 @@ export const unConstrDataV1: Builtin = {
               } satisfies Value.Value
             })
           : Either.left(
-              new WrongArgType(0, "constr data", Object.keys(data.data).join(""))
+              new WrongArgType(
+                0,
+                "constr data",
+                Object.keys(data.data).join("")
+              )
             )
       )
     )
@@ -1203,7 +1223,9 @@ export const unMapDataV1: Builtin = {
                 }))
               } satisfies Value.Value
             })
-          : Either.left(new WrongArgType(0, "map data", Value.describeType(data)))
+          : Either.left(
+              new WrongArgType(0, "map data", Value.describeType(data))
+            )
       )
     )
   }
@@ -1238,7 +1260,9 @@ export const unListDataV1: Builtin = {
                 items: data.data.list.map((d) => ({ data: d }))
               } satisfies Value.Value
             })
-          : Either.left(new WrongArgType(0, "list data", Value.describeType(data)))
+          : Either.left(
+              new WrongArgType(0, "list data", Value.describeType(data))
+            )
       )
     )
   }
@@ -1267,7 +1291,9 @@ export const unIDataV1: Builtin = {
       Either.flatMap((data) =>
         "int" in data.data
           ? Either.right({ _tag: "Const", value: data.data.int })
-          : Either.left(new WrongArgType(0, "int data", Value.describeType(data)))
+          : Either.left(
+              new WrongArgType(0, "int data", Value.describeType(data))
+            )
       )
     )
   }
@@ -1296,7 +1322,9 @@ export const unBDataV1: Builtin = {
       Either.flatMap((data) =>
         "bytes" in data.data
           ? Either.right({ _tag: "Const", value: data.data.bytes })
-          : Either.left(new WrongArgType(0, "byte data", Value.describeType(data)))
+          : Either.left(
+              new WrongArgType(0, "byte data", Value.describeType(data))
+            )
       )
     )
   }
@@ -1489,7 +1517,11 @@ function expectG1(
       typeof value == "object" && value != null && "g1Element" in value
         ? Either.right(Value.tupleToG1(value.g1Element))
         : Either.left(
-            new WrongArgType(index, "bls12_381_G1_element", Value.describeType(value))
+            new WrongArgType(
+              index,
+              "bls12_381_G1_element",
+              Value.describeType(value)
+            )
           )
     )
   )
@@ -1504,7 +1536,11 @@ function expectG2(
       typeof value == "object" && value != null && "g2Element" in value
         ? Either.right(Value.tupleToG2(value.g2Element))
         : Either.left(
-            new WrongArgType(index, "bls12_381_G2_element", Value.describeType(value))
+            new WrongArgType(
+              index,
+              "bls12_381_G2_element",
+              Value.describeType(value)
+            )
           )
     )
   )
@@ -1530,7 +1566,11 @@ function expectMlResult(
             ]
           ])
         : Either.left(
-            new WrongArgType(index, "bls12_381_mlresult", Value.describeType(value))
+            new WrongArgType(
+              index,
+              "bls12_381_mlresult",
+              Value.describeType(value)
+            )
           )
     )
   )
@@ -1544,7 +1584,9 @@ function expectBytes(
     Either.flatMap((value) =>
       value instanceof Uint8Array
         ? Either.right(value)
-        : Either.left(new WrongArgType(index, "bytes", Value.describeType(value)))
+        : Either.left(
+            new WrongArgType(index, "bytes", Value.describeType(value))
+          )
     )
   )
 }
@@ -1557,7 +1599,9 @@ function expectInteger(
     Either.flatMap((value) =>
       typeof value == "bigint"
         ? Either.right(value)
-        : Either.left(new WrongArgType(index, "integer", Value.describeType(value)))
+        : Either.left(
+            new WrongArgType(index, "integer", Value.describeType(value))
+          )
     )
   )
 }
@@ -1570,7 +1614,9 @@ function expectBool(
     Either.flatMap((value) =>
       typeof value == "boolean"
         ? Either.right(value)
-        : Either.left(new WrongArgType(index, "bool", Value.describeType(value)))
+        : Either.left(
+            new WrongArgType(index, "bool", Value.describeType(value))
+          )
     )
   )
 }
@@ -1583,7 +1629,9 @@ function expectString(
     Either.flatMap((value) =>
       typeof value == "string"
         ? Either.right(value)
-        : Either.left(new WrongArgType(index, "string", Value.describeType(value)))
+        : Either.left(
+            new WrongArgType(index, "string", Value.describeType(value))
+          )
     )
   )
 }
@@ -1597,7 +1645,9 @@ function expectUnit(
     Either.flatMap((value) =>
       value === null
         ? Either.right(value)
-        : Either.left(new WrongArgType(index, expected, Value.describeType(value)))
+        : Either.left(
+            new WrongArgType(index, expected, Value.describeType(value))
+          )
     )
   )
 }
@@ -1610,7 +1660,9 @@ function expectData(
     Either.flatMap((value) =>
       Value.isData(value)
         ? Either.right(value)
-        : Either.left(new WrongArgType(index, "data", Value.describeType(value)))
+        : Either.left(
+            new WrongArgType(index, "data", Value.describeType(value))
+          )
     )
   )
 }
@@ -1623,7 +1675,9 @@ function expectPair(
     Either.flatMap((value) =>
       Value.isPair(value)
         ? Either.right(value)
-        : Either.left(new WrongArgType(index, "pair", Value.describeType(value)))
+        : Either.left(
+            new WrongArgType(index, "pair", Value.describeType(value))
+          )
     )
   )
 }
@@ -1637,7 +1691,9 @@ function expectList(
     Either.flatMap((value) =>
       Value.isList(value)
         ? Either.right(value)
-        : Either.left(new WrongArgType(index, expected, Value.describeType(value)))
+        : Either.left(
+            new WrongArgType(index, expected, Value.describeType(value))
+          )
     )
   )
 }
@@ -1739,7 +1795,9 @@ function expectDataList(
     Either.flatMap((list) =>
       list.itemType == Type.Data
         ? Either.right(list)
-        : Either.left(new WrongArgType(index, "data list", Value.describeType(list)))
+        : Either.left(
+            new WrongArgType(index, "data list", Value.describeType(list))
+          )
     )
   )
 }
@@ -1779,7 +1837,9 @@ function expectBls12_381Scalar(
     Either.flatMap((s) =>
       bls12_381ScalarOutOfBounds(s)
         ? Either.left(
-            cryptoFailure(`Scalar exceeds 512-byte bound for ${groupName}.scalarMul`)
+            cryptoFailure(
+              `Scalar exceeds 512-byte bound for ${groupName}.scalarMul`
+            )
           )
         : Either.right(s)
     )
@@ -1824,7 +1884,9 @@ function tryCrypto<T>(fn: () => T): Either.Either<T, Encoding.DecodeException> {
   try {
     return Either.right(fn())
   } catch (e) {
-    return Either.left(cryptoFailure(e instanceof Error ? e.message : String(e)))
+    return Either.left(
+      cryptoFailure(e instanceof Error ? e.message : String(e))
+    )
   }
 }
 
@@ -1885,7 +1947,9 @@ export const bls12_381_G1_scalarMulV3: Builtin = {
     Either.all([expectBls12_381Scalar(s, 0, "G1"), expectG1(p, 1)]).pipe(
       Either.map(([s, p]) => ({
         _tag: "Const",
-        value: { g1Element: Value.g1ToTuple(Crypto.Bls12_381.g1ScalarMul(s, p)) }
+        value: {
+          g1Element: Value.g1ToTuple(Crypto.Bls12_381.g1ScalarMul(s, p))
+        }
       }))
     )
 }
@@ -2026,7 +2090,9 @@ export const bls12_381_G2_scalarMulV3: Builtin = {
     Either.all([expectBls12_381Scalar(s, 0, "G2"), expectG2(p, 1)]).pipe(
       Either.map(([s, p]) => ({
         _tag: "Const",
-        value: { g2Element: Value.g2ToTuple(Crypto.Bls12_381.g2ScalarMul(s, p)) }
+        value: {
+          g2Element: Value.g2ToTuple(Crypto.Bls12_381.g2ScalarMul(s, p))
+        }
       }))
     )
 }

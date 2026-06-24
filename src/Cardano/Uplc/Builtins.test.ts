@@ -324,7 +324,10 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
     return builtin.call(args.map(constValue), {} as never)
   }
 
-  function callBuiltin(name: string, args: readonly Value.Value[]): Value.Value {
+  function callBuiltin(
+    name: string,
+    args: readonly Value.Value[]
+  ): Value.Value {
     const result = Either.getOrThrow(callBuiltinEither(name, args))
 
     if (result._tag != "Const") {
@@ -397,9 +400,9 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
   }
 
   function expectG1Equal(actual: Value.Value, expectedHex: string) {
-    expect(
-      callBool("bls12_381_G1_equal", [actual, g1Value(expectedHex)])
-    ).toBe(true)
+    expect(callBool("bls12_381_G1_equal", [actual, g1Value(expectedHex)])).toBe(
+      true
+    )
   }
 
   function expectG1Compressed(actual: Value.Value, expectedHex: string) {
@@ -409,9 +412,9 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
   }
 
   function expectG2Equal(actual: Value.Value, expectedHex: string) {
-    expect(
-      callBool("bls12_381_G2_equal", [actual, g2Value(expectedHex)])
-    ).toBe(true)
+    expect(callBool("bls12_381_G2_equal", [actual, g2Value(expectedHex)])).toBe(
+      true
+    )
   }
 
   function expectG2Compressed(actual: Value.Value, expectedHex: string) {
@@ -443,13 +446,17 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
 
   it("copies conformance: bls12_381_G1_compress/compress", () => {
     expect(
-      Bytes.toHex(callBytes("bls12_381_G1_compress", [g1Value(g1CompressInput)]))
+      Bytes.toHex(
+        callBytes("bls12_381_G1_compress", [g1Value(g1CompressInput)])
+      )
     ).toBe(g1CompressInput)
   })
 
   it("copies conformance: bls12_381_G2_compress/compress", () => {
     expect(
-      Bytes.toHex(callBytes("bls12_381_G2_compress", [g2Value(g2CompressInput)]))
+      Bytes.toHex(
+        callBytes("bls12_381_G2_compress", [g2Value(g2CompressInput)])
+      )
     ).toBe(g2CompressInput)
   })
 
@@ -475,8 +482,14 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
   it("copies conformance: bls12_381_G1_add/add-commutative", () => {
     expect(
       callBool("bls12_381_G1_equal", [
-        callBuiltin("bls12_381_G1_add", [g1Value(g1C), g1Value(g1CompressInput)]),
-        callBuiltin("bls12_381_G1_add", [g1Value(g1CompressInput), g1Value(g1C)])
+        callBuiltin("bls12_381_G1_add", [
+          g1Value(g1C),
+          g1Value(g1CompressInput)
+        ]),
+        callBuiltin("bls12_381_G1_add", [
+          g1Value(g1CompressInput),
+          g1Value(g1C)
+        ])
       ])
     ).toBe(true)
   })
@@ -517,7 +530,10 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
     expect(
       callBool("bls12_381_G1_equal", [
         callBuiltin("bls12_381_G1_scalarMul", [s, g1Value(g1CompressInput)]),
-        callBuiltin("bls12_381_G1_scalarMul", [s % Bls12_381.R, g1Value(g1CompressInput)])
+        callBuiltin("bls12_381_G1_scalarMul", [
+          s % Bls12_381.R,
+          g1Value(g1CompressInput)
+        ])
       ])
     ).toBe(true)
   })
@@ -574,7 +590,10 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
     expect(
       callBool("bls12_381_G2_equal", [
         callBuiltin("bls12_381_G2_scalarMul", [s, g2Value(g2CompressInput)]),
-        callBuiltin("bls12_381_G2_scalarMul", [s % Bls12_381.R, g2Value(g2CompressInput)])
+        callBuiltin("bls12_381_G2_scalarMul", [
+          s % Bls12_381.R,
+          g2Value(g2CompressInput)
+        ])
       ])
     ).toBe(true)
   })
@@ -586,9 +605,9 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
     const dstLen256 =
       "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890ff"
 
-    expect(callBuiltinEither(builtinName, [bytes("3f"), bytes(dstLen256)])._tag).toBe(
-      "Left"
-    )
+    expect(
+      callBuiltinEither(builtinName, [bytes("3f"), bytes(dstLen256)])._tag
+    ).toBe("Left")
   })
 
   it("copies conformance: bls12_381_G2_hashToGroup/hash", () => {
@@ -699,9 +718,12 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
     ["bls12_381_G1_scalarMul", scalarLowerBound - 1n, g1Value(g1A)],
     ["bls12_381_G2_scalarMul", scalarUpperBound + 1n, g2Value(g2A)],
     ["bls12_381_G2_scalarMul", scalarLowerBound - 1n, g2Value(g2A)]
-  ])("rejects Plutus out-of-bounds scalar: %s", (builtinName, scalar, point) => {
-    expect(callBuiltinEither(builtinName, [scalar, point])._tag).toBe("Left")
-  })
+  ])(
+    "rejects Plutus out-of-bounds scalar: %s",
+    (builtinName, scalar, point) => {
+      expect(callBuiltinEither(builtinName, [scalar, point])._tag).toBe("Left")
+    }
+  )
 
   it.each([
     [
@@ -782,15 +804,30 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
   )
 
   it.each([
-    ["G1", "bls12_381_G1_multiScalarMul", "bls12_381_G1_add", "bls12_381_G1_scalarMul", g1List],
-    ["G2", "bls12_381_G2_multiScalarMul", "bls12_381_G2_add", "bls12_381_G2_scalarMul", g2List]
+    [
+      "G1",
+      "bls12_381_G1_multiScalarMul",
+      "bls12_381_G1_add",
+      "bls12_381_G1_scalarMul",
+      g1List
+    ],
+    [
+      "G2",
+      "bls12_381_G2_multiScalarMul",
+      "bls12_381_G2_add",
+      "bls12_381_G2_scalarMul",
+      g2List
+    ]
   ])(
     "copies conformance: bls12_381_%s_multiScalarMul/zip-and-add",
     (_group, msmBuiltin, addBuiltin, scalarMulBuiltin, groupList) => {
       const scalars = [3n, -5n, 7n]
-      const points = _group == "G1" ? [g1A, g1B, g1C] : [g2A, g2B, g2CompressInput]
+      const points =
+        _group == "G1" ? [g1A, g1B, g1C] : [g2A, g2B, g2CompressInput]
       const expected = scalars
-        .map((s, i) => callBuiltin(scalarMulBuiltin, [s, groupList(points).items[i]]))
+        .map((s, i) =>
+          callBuiltin(scalarMulBuiltin, [s, groupList(points).items[i]])
+        )
         .reduce((a, b) => callBuiltin(addBuiltin, [a, b]))
 
       expect(
@@ -850,11 +887,14 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
     ["bls12_381_G1_multiScalarMul", scalarLowerBound - 1n, g1List([g1A])],
     ["bls12_381_G2_multiScalarMul", scalarUpperBound + 1n, g2List([g2A])],
     ["bls12_381_G2_multiScalarMul", scalarLowerBound - 1n, g2List([g2A])]
-  ])("rejects Plutus out-of-bounds scalar: %s", (builtinName, scalar, points) => {
-    expect(callBuiltinEither(builtinName, [intList([scalar]), points])._tag).toBe(
-      "Left"
-    )
-  })
+  ])(
+    "rejects Plutus out-of-bounds scalar: %s",
+    (builtinName, scalar, points) => {
+      expect(
+        callBuiltinEither(builtinName, [intList([scalar]), points])._tag
+      ).toBe("Left")
+    }
+  )
 
   it("copies conformance: bls12_381_millerLoop/balanced", () => {
     const n = 251123n
@@ -865,8 +905,14 @@ describe("Uplc.Builtins BLS12-381 V3", () => {
 
     expect(
       finalVerify(
-        millerLoop(g1Value(Bytes.toHex(callBytes("bls12_381_G1_compress", [nG1]))), g2),
-        millerLoop(g1, g2Value(Bytes.toHex(callBytes("bls12_381_G2_compress", [nG2]))))
+        millerLoop(
+          g1Value(Bytes.toHex(callBytes("bls12_381_G1_compress", [nG1]))),
+          g2
+        ),
+        millerLoop(
+          g1,
+          g2Value(Bytes.toHex(callBytes("bls12_381_G2_compress", [nG2])))
+        )
       )
     ).toBe(true)
   })

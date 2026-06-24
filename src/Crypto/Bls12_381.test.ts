@@ -138,10 +138,7 @@ describe("Crypto.Bls12_381 pairing", () => {
     ]
 
     expect(
-      Bls12_381.fp12Equals(
-        Bls12_381.finalExponentiate(mlResult),
-        expected
-      )
+      Bls12_381.fp12Equals(Bls12_381.finalExponentiate(mlResult), expected)
     ).toBe(true)
   })
 })

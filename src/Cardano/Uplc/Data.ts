@@ -10,9 +10,7 @@ const SuspendedDataFromJSON = Schema.suspend(
   (): Schema.Schema<Data, DataJSON> => DataFromJSON
 )
 
-const SuspendedData = Schema.suspend(
-  (): Schema.Schema<Data, Data> => Data
-)
+const SuspendedData = Schema.suspend((): Schema.Schema<Data, Data> => Data)
 
 export const ByteArrayDataFromJSON = Schema.Struct({
   bytes: Schema.Uint8ArrayFromHex

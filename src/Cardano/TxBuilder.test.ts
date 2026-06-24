@@ -39,10 +39,10 @@ describe("can balance Tx", () => {
     const recipientAddress =
       "addr_test1vzzcg26lxj3twnnx889lrn60pqn0z3km2yahhsz0fvpyxdcj5qp8w" as Ledger.Address.Address
     const policy = "01".repeat(28) as Ledger.MintingPolicy.MintingPolicy
-    const longerLexicographicallyEarlier = Ledger.AssetClass.make(policy, [
-      0x01,
-      0x01
-    ])
+    const longerLexicographicallyEarlier = Ledger.AssetClass.make(
+      policy,
+      [0x01, 0x01]
+    )
     const shorterLexicographicallyLater = Ledger.AssetClass.make(policy, [0x02])
     const unsortedOutputAssets: Ledger.Assets.Assets = {
       [longerLexicographicallyEarlier]: 1n,
@@ -74,9 +74,7 @@ describe("can balance Tx", () => {
       yield* Ledger.Tx.validate({ strict: true })(tx)
 
       expect(
-        tx.body.outputs.every((output) =>
-          Ledger.Assets.isSorted(output.assets)
-        )
+        tx.body.outputs.every((output) => Ledger.Assets.isSorted(output.assets))
       ).toBeTrue()
     })
 
@@ -183,8 +181,7 @@ describe("can balance Tx", () => {
         Effect.provideService(Wallet.Balancing, {
           changeAddress: Effect.succeed(addr),
           utxos: Effect.succeed([spareUTxO]),
-          signTx: () =>
-            Effect.fail(new Error("signTx should not be called"))
+          signTx: () => Effect.fail(new Error("signTx should not be called"))
         }),
         Effect.provideService(TxBuilder.GetDatum, (h) =>
           Effect.fail(new TxBuilder.DatumNotFound(h))
@@ -255,8 +252,7 @@ describe("can balance Tx", () => {
       const inputLovelace = Ledger.UTxO.sumAssets(...tx.body.inputs)[""] ?? 0n
       const outputLovelace =
         Ledger.TxOutput.sumAssets(...tx.body.outputs)[""] ?? 0n
-      const registrationDeposits =
-        2n * BigInt(testParams.stakeAddrDeposit)
+      const registrationDeposits = 2n * BigInt(testParams.stakeAddrDeposit)
 
       expect(inputLovelace - outputLovelace - tx.body.fee).toEqual(
         registrationDeposits

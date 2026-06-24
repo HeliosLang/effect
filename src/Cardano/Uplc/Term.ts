@@ -50,11 +50,11 @@ const Builtin$ = Schema.TaggedStruct("Builtin", {
 })
 
 type Builtin$ = {
-  _tag: "Builtin",
-  id: number,
-  name?: string | undefined,
-  capture?: string | undefined,
-  description?: string | undefined,
+  _tag: "Builtin"
+  id: number
+  name?: string | undefined
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
 }
 
@@ -86,14 +86,13 @@ export const Const = Schema.TaggedStruct("Const", {
 })
 
 export type Const = {
-  _tag: "Const",
-  value: Value.Value,
-  name?: string | undefined,
-  capture?: string | undefined,
-  description?: string | undefined,
+  _tag: "Const"
+  value: Value.Value
+  name?: string | undefined
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
-} 
-
+}
 
 export const Constr = Schema.TaggedStruct("Constr", {
   tag: Schema.Int,
@@ -136,9 +135,9 @@ const Error$ = Schema.TaggedStruct("Error", {
 })
 
 type Error$ = {
-  _tag: "Error",
-  capture?: string | undefined,
-  description?: string | undefined,
+  _tag: "Error"
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
 }
 
@@ -187,11 +186,11 @@ export const Var = Schema.TaggedStruct("Var", {
 })
 
 export type Var = {
-  _tag: "Var",
-  index: number,
-  name?: string | undefined,
-  capture?: string | undefined,
-  description?: string | undefined,
+  _tag: "Var"
+  index: number
+  name?: string | undefined
+  capture?: string | undefined
+  description?: string | undefined
   sourceSpan?: SourceSpan | undefined
 }
 
@@ -298,7 +297,7 @@ const decodeFlatBytes = (bytes: Bytes.BytesLike) => {
 
 /**
  * Verbose encoding format:
- * 
+ *
  * {
  *   0: CBORBytes(root flat bytes (i.e. what would be returned if verbose == false)),
  *   1: {
@@ -308,47 +307,53 @@ const decodeFlatBytes = (bytes: Bytes.BytesLike) => {
  *     3: CBORMap<Int, String> (term names, key is term index)
  *     4: CBORMap<Int, String> (term descriptions, key is termIndex)
  *     5: CBORMap<Int, String> (capture names/ids, key is termIndex)
- *   } 
+ *   }
  * }
  */
 
-export const decodeRoot = (bytes: Bytes.BytesLike): Either.Either<Term, Error> => {
+export const decodeRoot = (
+  bytes: Bytes.BytesLike
+): Either.Either<Term, Error> => {
   if (!Cbor.isMap(bytes)) {
     return decodeFlatBytes(bytes)
   } else {
     return Cbor.decodeObjectIKey({
       0: Cbor.decodeBytes,
       1: Metadata.decode
-    })(bytes).pipe(Either.flatMap(({0: rootFlatBytes, 1: metadata}) => {
-      if (!rootFlatBytes) {
-        return Either.left(
-          new Cbor.DecodeError(
-            Bytes.makeStream(bytes),
-            "Entry 0 missing from verbose UPLC encoding"
+    })(bytes).pipe(
+      Either.flatMap(({ 0: rootFlatBytes, 1: metadata }) => {
+        if (!rootFlatBytes) {
+          return Either.left(
+            new Cbor.DecodeError(
+              Bytes.makeStream(bytes),
+              "Entry 0 missing from verbose UPLC encoding"
+            )
           )
-        )
-      }
-
-      return decodeFlatBytes(rootFlatBytes).pipe(Either.map(ast => {
-        if (metadata) {
-          Metadata.apply(ast, metadata)
         }
 
-        return ast
-      }))
-    }))
+        return decodeFlatBytes(rootFlatBytes).pipe(
+          Either.map((ast) => {
+            if (metadata) {
+              Metadata.apply(ast, metadata)
+            }
+
+            return ast
+          })
+        )
+      })
+    )
   }
 }
 
 /**
- * @param uplcVersion 
- * @param term 
- * @param verbose 
+ * @param uplcVersion
+ * @param term
+ * @param verbose
  * Optional, defaults to false.
  * Note that if verbose==true but metadata is empty, the plain flat encoded program without metadata is still returned
- * 
+ *
  * @returns
- * The encoded program 
+ * The encoded program
  */
 export const encodeRoot = (
   uplcVersion: "1.0.0" | "1.1.0",
@@ -364,10 +369,10 @@ export const encodeRoot = (
   encode(w)(term)
 
   const rootFlatBytes = Bytes.toUint8Array(w.finalize())
-  
+
   if (verbose) {
     const metadata = Metadata.fromRootTerm(term)
-    
+
     if (!Metadata.isEmpty(metadata)) {
       return Bytes.toUint8Array(
         Cbor.encodeObjectIKey({

@@ -97,7 +97,8 @@ describe("Cardano.ScriptContext.TxInfoV3", () => {
   })
 
   it("encodes rewarding credentials without reward address wrappers", () => {
-    const scriptHash = "5b656cb953602f8a7302e6404aca1f2978966a4aacfd2d0de490c6e9"
+    const scriptHash =
+      "5b656cb953602f8a7302e6404aca1f2978966a4aacfd2d0de490c6e9"
     const rewardAddress = Effect.runSync(
       RewardAddress.script(scriptHash as ValidatorHash.ValidatorHash).pipe(
         Effect.provideService(Network.IsMainnet, false)
@@ -129,9 +130,9 @@ describe("Cardano.ScriptContext.TxInfoV3", () => {
       )
     )
     const [purposeData] = Effect.runSync(
-      Effect.all(tx.witnesses.redeemers.map((r) => Schema.encode(PurposeV3)(r))).pipe(
-        Effect.provideService(CurrentTx, tx)
-      )
+      Effect.all(
+        tx.witnesses.redeemers.map((r) => Schema.encode(PurposeV3)(r))
+      ).pipe(Effect.provideService(CurrentTx, tx))
     )
 
     if (!("fields" in txInfoData)) {

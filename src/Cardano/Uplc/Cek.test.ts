@@ -176,10 +176,13 @@ describe("Cek.eval()", () => {
   })
 
   it("returns empty captured values when no capture metadata is present", () => {
-    const result = Cek.eval({ _tag: "Const", value: 42n }, {
-      builtins: Builtins.V1,
-      costParams: Cost.PARAMS_V1_BABBAGE
-    })
+    const result = Cek.eval(
+      { _tag: "Const", value: 42n },
+      {
+        builtins: Builtins.V1,
+        costParams: Cost.PARAMS_V1_BABBAGE
+      }
+    )
 
     expect(result.capturedValues).toEqual([])
   })

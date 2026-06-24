@@ -2,7 +2,13 @@ import { Either, Encoding } from "effect"
 import * as BigEndian from "../Codecs/BigEndian.js"
 import * as Bytes from "../Codecs/Bytes.js"
 import * as Sha2_256 from "./Sha2_256.js"
-import { FieldHelper, mod, QuadraticField, ScalarField, type Field } from "./Field.js"
+import {
+  FieldHelper,
+  mod,
+  QuadraticField,
+  ScalarField,
+  type Field
+} from "./Field.js"
 
 export type Fp = bigint
 export type Fp2 = [bigint, bigint]
@@ -324,7 +330,7 @@ class Fp2Field extends FieldHelper<Fp2> {
 
     r = this.mod(r)
 
-    if (largest !== undefined && largest !== (r[0] > P / 2n)) {
+    if (largest !== undefined && largest !== r[0] > P / 2n) {
       r = this.negate(r)
     }
 
@@ -670,8 +676,10 @@ export function g2ToAffine(p: G2): Affine<Fp2> {
 }
 
 export function g1Equals(a: G1, b: G1): boolean {
-  return F1.equals(F1.multiply(a.x, b.z), F1.multiply(b.x, a.z)) &&
+  return (
+    F1.equals(F1.multiply(a.x, b.z), F1.multiply(b.x, a.z)) &&
     F1.equals(F1.multiply(a.y, b.z), F1.multiply(b.y, a.z))
+  )
 }
 
 export function g2Equals(a: G2, b: G2): boolean {
@@ -868,10 +876,14 @@ export function encodeG2(point: G2): Uint8Array {
   return Bytes.toUint8Array(bytes)
 }
 
-export function decodeG1(bytes: Uint8Array | number[]): Either.Either<G1, Encoding.DecodeException> {
+export function decodeG1(
+  bytes: Uint8Array | number[]
+): Either.Either<G1, Encoding.DecodeException> {
   try {
     if (bytes.length != 48) {
-      return Either.left(bytesDecodeError(bytes, `expected 48 bytes, got ${bytes.length}`))
+      return Either.left(
+        bytesDecodeError(bytes, `expected 48 bytes, got ${bytes.length}`)
+      )
     }
 
     const tmp = Array.from(bytes)
@@ -883,7 +895,9 @@ export function decodeG1(bytes: Uint8Array | number[]): Either.Either<G1, Encodi
 
     if ((head & 0b01000000) != 0) {
       if (head != 0b11000000 || tmp.slice(1).some((b) => b != 0)) {
-        return Either.left(bytesDecodeError(bytes, "invalid G1 infinity encoding"))
+        return Either.left(
+          bytesDecodeError(bytes, "invalid G1 infinity encoding")
+        )
       }
 
       return Either.right(g1Zero())
@@ -894,7 +908,9 @@ export function decodeG1(bytes: Uint8Array | number[]): Either.Either<G1, Encodi
     const x = decodeIntBE(tmp)
 
     if (x >= P) {
-      return Either.left(bytesDecodeError(bytes, "G1 x coordinate out of range"))
+      return Either.left(
+        bytesDecodeError(bytes, "G1 x coordinate out of range")
+      )
     }
 
     const y = F1.sqrt(F1.add(F1.cube(x), G1_B), largest)
@@ -912,10 +928,14 @@ export function decodeG1(bytes: Uint8Array | number[]): Either.Either<G1, Encodi
   }
 }
 
-export function decodeG2(bytes: Uint8Array | number[]): Either.Either<G2, Encoding.DecodeException> {
+export function decodeG2(
+  bytes: Uint8Array | number[]
+): Either.Either<G2, Encoding.DecodeException> {
   try {
     if (bytes.length != 96) {
-      return Either.left(bytesDecodeError(bytes, `expected 96 bytes, got ${bytes.length}`))
+      return Either.left(
+        bytesDecodeError(bytes, `expected 96 bytes, got ${bytes.length}`)
+      )
     }
 
     const tmp = Array.from(bytes)
@@ -927,7 +947,9 @@ export function decodeG2(bytes: Uint8Array | number[]): Either.Either<G2, Encodi
 
     if ((head & 0b01000000) != 0) {
       if (head != 0b11000000 || tmp.slice(1).some((b) => b != 0)) {
-        return Either.left(bytesDecodeError(bytes, "invalid G2 infinity encoding"))
+        return Either.left(
+          bytesDecodeError(bytes, "invalid G2 infinity encoding")
+        )
       }
 
       return Either.right(g2Zero())
@@ -938,7 +960,9 @@ export function decodeG2(bytes: Uint8Array | number[]): Either.Either<G2, Encodi
     const x: Fp2 = [decodeIntBE(tmp.slice(48)), decodeIntBE(tmp.slice(0, 48))]
 
     if (x[0] >= P || x[1] >= P) {
-      return Either.left(bytesDecodeError(bytes, "G2 x coordinate out of range"))
+      return Either.left(
+        bytesDecodeError(bytes, "G2 x coordinate out of range")
+      )
     }
 
     const y = F2.sqrt(F2.add(F2.cube(x), G2_B), largest)
@@ -984,7 +1008,11 @@ function sha256(bytes: number[]): number[] {
   return Array.from(Sha2_256.hashSync(Bytes.toUint8Array(bytes)))
 }
 
-function expandMessageXmd(msg: Uint8Array, dst: Uint8Array, n: number): number[] {
+function expandMessageXmd(
+  msg: Uint8Array,
+  dst: Uint8Array,
+  n: number
+): number[] {
   if (dst.length > 255) {
     throw new Error("domain specific tag too long")
   }
@@ -1004,16 +1032,28 @@ function expandMessageXmd(msg: Uint8Array, dst: Uint8Array, n: number): number[]
     .concat(i2osp(0, 1))
     .concat(dstPrime)
   const b0 = sha256(msgPrime)
-  const blocks: number[][] = [b0, sha256(b0.concat(i2osp(1, 1)).concat(dstPrime))]
+  const blocks: number[][] = [
+    b0,
+    sha256(b0.concat(i2osp(1, 1)).concat(dstPrime))
+  ]
 
   for (let i = 2; i <= ell; i++) {
-    blocks[i] = sha256(strxor(b0, blocks[i - 1]).concat(i2osp(i, 1)).concat(dstPrime))
+    blocks[i] = sha256(
+      strxor(b0, blocks[i - 1])
+        .concat(i2osp(i, 1))
+        .concat(dstPrime)
+    )
   }
 
   return blocks.slice(1).flat().slice(0, n)
 }
 
-function hashToField(msg: Uint8Array, dst: Uint8Array, count: number, m: number): bigint[][] {
+function hashToField(
+  msg: Uint8Array,
+  dst: Uint8Array,
+  count: number,
+  m: number
+): bigint[][] {
   const L = Math.ceil((381 + 128) / 8)
   const uniformBytes = expandMessageXmd(msg, dst, count * m * L)
   const res: bigint[][] = []
@@ -1287,7 +1327,10 @@ function precomputeG2({ x: bx, y: by }: Affine<Fp2>): Fp6Line[][] {
   return res
 }
 
-function millerLoopInternal({ x: ax, y: ay }: Affine<bigint>, bs: Fp6Line[][]): Fp12 {
+function millerLoopInternal(
+  { x: ax, y: ay }: Affine<bigint>,
+  bs: Fp6Line[][]
+): Fp12 {
   let res = F12.ONE
 
   for (const lines of bs) {

@@ -417,7 +417,10 @@ function eval$(entryPoint: Term, evalContext: EvalContext): Result {
           state = computeApplyTerm(computing as ComputingState<Apply>, ctx)
           break
         case "Builtin":
-          state = computeBuiltinTerm(computing as ComputingState<BuiltinTerm>, ctx)
+          state = computeBuiltinTerm(
+            computing as ComputingState<BuiltinTerm>,
+            ctx
+          )
           break
         case "Case":
           state = computeCaseTerm(computing as ComputingState<Case>, ctx)

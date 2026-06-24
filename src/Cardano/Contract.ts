@@ -18,7 +18,7 @@ import * as TxBuilder from "./TxBuilder.js"
  * A 'Contract' is a special validator which can be 'upgraded'
  */
 const cborHex =
-  "010100223232323232323232323232323232325333573466e1c00d200013300d3375e6ae84d55cf1baa33300f00f37586ae8401400404524010e73656564206e6f74207370656e740013232325333573466e1c01920021323357366602266601e01e6eacd5d09aba20010024911c6f757470757420646f65736e277420636f6e7461696e20746f6b656e003357366602266ebcd5d09aab9e37546ae84004cdd2a400466ae80008dd8a4c9201136f7574707574206e6f742072657475726e656400323357366660180020140086602466ebc004ccc050050dd61aba135573c6ea8d5d09aba2357440046eb4d5d09aba2357446ae88d5d1003a4811d7769746e657373206e6f742070726573656e7420696e206f757470757400333300d37586ae84024014008010d55cf1baa33301201237586ae84d5d11aba2008375a6ae84d5d11aba23574400a266601466660186eb0d5d09aba2008004001003008002323232325333573466e1c00920001533357346660220226eacd5d09aba2357446ae88d5d10020008980a24811063616e2774206d696e7420746f6b656e00100115333573466e1c00920021357426aae78dd51aba135573c6ea8d5d09aab9e37546ae84d5d11aab9e37546660200206eb0d5d08020008a999ab9a3370e004900209aba135573c6ea8d5d09aab9e37540022a666ae68cdc38012400c26464a666ae68cdc41aab9d002480204d5d09aab9e37546ae840044d5d09aab9e37546ae84d55cf1baa357420026aae78004dd50008a999ab9a3370e004900409aba135573c6ea8d5d09aab9e37546ae84d55cf1baa0011301449113756e737570706f7274656420707572706f736500357426aae78008d55ce8009baa357426ae88d5d10048039bad357426ae88d5d10019bad357426ae88008dd69aba100135573c0046aae74004dd51aba1357440046aae78dd51aba100135573c6ea8028888c8c94ccd5cd19b8735573a004900009980599baf33300d00d37586ae84d5d11aba2357446ae88d5d11aba2357446ae8801000c00524116756e657870656374656420706b68207769746e6573730013300b3375e6ae84d55cf1baa357426aae78dd51aab9d33300600637566ae84d5d11aba2357446ae88d5d11aba200400300149011a756e6578706563746564207769746864726177616c206372656400357426aae78004dd50019112999ab9a3370e002900009aba100213330030033574400466e0400520022222323357366601266600e00e6eacd5d09aba20010034911b696e70757420646f65736e277420636f6e7461696e20746f6b656e0033300b00b37586ae84d55cf1baa357426ae88d5d10008011aab9e37546ae84d5d11aab9e375466601401400800644464a666ae68cdd79aba135573c6ea800400840044ccc010010d5d10018011aba1002222533357346ae8c0085280992999ab9a3375e6aae740040084ccc014014dd59aab9e0013752911001333004004357440060046ae840088894ccd5cd1aba300214a02a666ae68cdd79aab9d3574200400229444ccc00c00cd5d1001000912999ab9a00214984c00c00494cd5ce0008b1112999ab9a3370e002900009aba100213330030033574400466e04005200201"
+  "010100223232323232323232323232323232325333573466e1c00d200013300d3375e6ae84d55cf1baa33300f00f37586ae8401400404524010e73656564206e6f74207370656e740013232325333573466e1c01920021323357366602266601e01e6eacd5d09aba20010024911c6f757470757420646f65736e277420636f6e7461696e20746f6b656e003357366602266ebcd5d09aab9e37546ae84004cdd2a400466ae80008dd8a4c9201136f7574707574206e6f742072657475726e656400323357366660180020140086602466ebc004ccc050050dd61aba135573c6ea8d5d09aba2357440046eb4d5d09aba2357446ae88d5d1003a4811d7769746e657373206e6f742070726573656e7420696e206f757470757400333300d37586ae84024014008010d55cf1baa33301201237586ae84d5d11aba2008375a6ae84d5d11aba23574400a266601466660186eb0d5d09aba2008004001003008002323232325333573466e1c00920001533357346660220226eacd5d09aba2357446ae88d5d10020008980a24811063616e2774206d696e7420746f6b656e00100115333573466e1c00920021357426aae78dd51aba135573c6ea8d5d09aab9e37546ae84d5d11aab9e37546660200206eb0d5d08020008a999ab9a3370e004900209aba135573c6ea800454ccd5cd19b87002480184c8c94ccd5cd19b8835573a004900409aba135573c6ea8d5d080089aba135573c6ea8d5d09aab9e37546ae84004d55cf0009baa00115333573466e1c00920081357426aae78dd51aba135573c6ea8d5d09aab9e37540022602892113756e737570706f7274656420707572706f736500357426aae78008d55ce8009baa357426ae88d5d10048039bad357426ae88d5d10019bad357426ae88008dd69aba100135573c0046aae74004dd51aba1357440046aae78dd51aba100135573c6ea8028888c8c94ccd5cd19b8735573a004900009980599baf33300d00d37586ae84d5d11aba2357446ae88d5d11aba2357446ae8801000c00524116756e657870656374656420706b68207769746e6573730013300b3375e6ae84d55cf1baa35573a66600c00c6eacd5d09aba2357446ae88d5d11aba23574400800600292011a756e6578706563746564207769746864726177616c206372656400357426aae78004dd50019112999ab9a3370e002900009aba100213330030033574400466e0400520022222323357366601266600e00e6eacd5d09aba20010034911b696e70757420646f65736e277420636f6e7461696e20746f6b656e0033300b00b37586ae84d55cf1baa357426ae88d5d10008011aab9e37546ae84d5d11aab9e375466601401400800644464a666ae68cdd79aba135573c6ea800400840044ccc010010d5d10018011aba1002222533357346ae8c0085280992999ab9a3375e6aae740040084ccc014014dd59aab9e0013752911001333004004357440060046ae840088894ccd5cd1aba300214a02a666ae68cdd79aab9d3574200400229444ccc00c00cd5d1001000912999ab9a00214984c00c00494cd5ce0008b1112999ab9a3370e002900009aba100213330030033574400466e04005200201"
 
 export function make(seed: UTxORef.UTxORef) {
   const unapplied: Script.Script<3> = {
@@ -103,7 +103,9 @@ const stateUTxO = () =>
   Effect.gen(function* () {
     const vh = yield* hash
 
-    const [utxo] = (yield* $utxos()).filter(utxo => (utxo.output.assets[vh] ?? 0n) > 0n)
+    const [utxo] = (yield* $utxos()).filter(
+      (utxo) => (utxo.output.assets[vh] ?? 0n) > 0n
+    )
 
     if (utxo === undefined) {
       return yield* Effect.fail(new Error("Couldn't find contract state UTxO"))
@@ -111,7 +113,6 @@ const stateUTxO = () =>
 
     return utxo
   })
-
 
 export { $utxos as utxos }
 
@@ -161,7 +162,8 @@ export const init = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
     return b
   })
 
-export const initEffect = (witnesses: Witness[]) => Effect.flatMap(init(witnesses))
+export const initEffect = (witnesses: Witness[]) =>
+  Effect.flatMap(init(witnesses))
 
 export const addValidator =
   (vh: ValidatorHash.ValidatorHash) => (b: TxBuilder.TxBuilder) =>
@@ -293,37 +295,36 @@ export const removeWitness = (witness: Witness) => (b: TxBuilder.TxBuilder) =>
 export const removeWitnessEffect = (witness: Witness) =>
   Effect.flatMap(removeWitness(witness))
 
-export const updateWitnesses = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
-  Effect.gen(function* () {
-    const contract = yield* Contract
-    
-    const vh = yield* hash
-    const nft: Assets.Assets = { [vh]: 1n }
-    const address = yield* Address.script(vh)
-    
-    const utxo = yield* stateUTxO()
+export const updateWitnesses =
+  (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
+    Effect.gen(function* () {
+      const contract = yield* Contract
 
-    const inputWitnesses = yield* Schema.decodeUnknown(WitnessesFromUplcData)(
-      utxo.output.datum
-    )
+      const vh = yield* hash
+      const nft: Assets.Assets = { [vh]: 1n }
+      const address = yield* Address.script(vh)
 
-    b = TxBuilder.attachScript(contract)(b)
-    b = yield* TxBuilder.spend({ dedupe: "fail" })(
-      utxo,
-      buildUpdateRedeemer(vh, address, utxo.ref, inputWitnesses)
-    )(b)
+      const utxo = yield* stateUTxO()
 
-    // create the output
-    b = yield* TxBuilder.pay({
-      address,
-      assets: nft,
-      datum: yield* Schema.encode(WitnessesFromUplcData)(
-        witnesses
+      const inputWitnesses = yield* Schema.decodeUnknown(WitnessesFromUplcData)(
+        utxo.output.datum
       )
-    })(b)
 
-    return b
-  })
+      b = TxBuilder.attachScript(contract)(b)
+      b = yield* TxBuilder.spend({ dedupe: "fail" })(
+        utxo,
+        buildUpdateRedeemer(vh, address, utxo.ref, inputWitnesses)
+      )(b)
+
+      // create the output
+      b = yield* TxBuilder.pay({
+        address,
+        assets: nft,
+        datum: yield* Schema.encode(WitnessesFromUplcData)(witnesses)
+      })(b)
+
+      return b
+    })
 
 export const updateWitnessesEffect = (witnesses: Witness[]) =>
   Effect.flatMap(updateWitnesses(witnesses))
@@ -508,17 +509,28 @@ const buildWitnessRedeemer =
     ])
   }
 
-const findFirstWitness = (tx: Tx.Tx, contractWitnesses: readonly Witness[], contractAddress: Address.Address) => {
+const findFirstWitness = (
+  tx: Tx.Tx,
+  contractWitnesses: readonly Witness[],
+  contractAddress: Address.Address
+) => {
   const witnessPtr = contractWitnesses.findIndex((w) => {
     if (w._tag == "Signer") {
       return tx.body.signers.includes(w.pkh)
     } else {
-      return tx.body.withdrawals.some(([wk]) => RewardAddress.credential(wk).hash == w.vh)
+      return tx.body.withdrawals.some(
+        ([wk]) => RewardAddress.credential(wk).hash == w.vh
+      )
     }
   })
 
   if (witnessPtr < 0) {
-    throw new Error(`Tx not yet witnessed by one of the witnesses mentioned in contract ${contractAddress}. Expected one of [${contractWitnesses.map(w => `${w._tag}:${w._tag == "Signer" ? w.pkh : w.vh}`).join(", ")}]. Got [${tx.body.signers.map(s => `Signer:${s}`).concat(tx.body.withdrawals.map(w => `Withdrawer:${w[0]}`)).join(", ")}]`)
+    throw new Error(
+      `Tx not yet witnessed by one of the witnesses mentioned in contract ${contractAddress}. Expected one of [${contractWitnesses.map((w) => `${w._tag}:${w._tag == "Signer" ? w.pkh : w.vh}`).join(", ")}]. Got [${tx.body.signers
+        .map((s) => `Signer:${s}`)
+        .concat(tx.body.withdrawals.map((w) => `Withdrawer:${w[0]}`))
+        .join(", ")}]`
+    )
   }
 
   return witnessPtr

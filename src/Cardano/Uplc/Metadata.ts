@@ -62,9 +62,7 @@ export function termByIndex(root: Term): Map<number, Term> {
   return res
 }
 
-export const decode = (
-  bytes: Bytes.BytesLike
-): Cbor.DecodeResult<Metadata> =>
+export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<Metadata> =>
   Cbor.decodeObjectIKey({
     0: Cbor.decodeList(Cbor.decodeString),
     1: Cbor.decodeList(Cbor.decodeIntAsNumber),
@@ -92,7 +90,8 @@ export const decode = (
     )
   )
 
-export const encode = (metadata: Metadata): number[] => Cbor.encodeObjectIKey({
+export const encode = (metadata: Metadata): number[] =>
+  Cbor.encodeObjectIKey({
     0: Cbor.encodeList(metadata.sourceNames.map((s) => Cbor.encodeString(s))),
     1: Cbor.encodeList(metadata.sourceSpans.map(Cbor.encodeInt)),
     2: encodeStringMap(metadata.argNames),
@@ -178,16 +177,16 @@ export function isEmpty(metadata: Metadata): boolean {
 }
 
 /**
- * Metadata is applied to the UPLC Ast in 5 loops: 
+ * Metadata is applied to the UPLC Ast in 5 loops:
  *  1. source spans
  *  2. lambda arg names
  *  3. term names
  *  4. term descriptions
  *  5. capture ids
- * 
+ *
  * The Ast fields are mutated
- * @param root 
- * @param metadata 
+ * @param root
+ * @param metadata
  */
 export function apply(root: Term, metadata: Metadata): void {
   const terms = termByIndex(root)

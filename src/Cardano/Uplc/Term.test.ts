@@ -173,7 +173,9 @@ describe("Uplc.Term verbose encoding", () => {
     expect(decodeRoot(Term.encodeRoot("1.0.0", termWithMetadata))).toEqual(
       termWithoutMetadata
     )
-    expect(decodeRoot(Term.encodeRoot("1.0.0", termWithMetadata, true))).toMatchObject({
+    expect(
+      decodeRoot(Term.encodeRoot("1.0.0", termWithMetadata, true))
+    ).toMatchObject({
       _tag: "Apply",
       capture: "ignored"
     })

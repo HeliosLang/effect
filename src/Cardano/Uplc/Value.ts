@@ -440,13 +440,9 @@ export function toString(v: Value): string {
       return `[${v.items.map(toString).join(", ")}]`
     }
   } else if ("g1Element" in v) {
-    return `0x${Encoding.encodeHex(
-      Bls12_381.encodeG1(tupleToG1(v.g1Element))
-    )}`
+    return `0x${Encoding.encodeHex(Bls12_381.encodeG1(tupleToG1(v.g1Element)))}`
   } else if ("g2Element" in v) {
-    return `0x${Encoding.encodeHex(
-      Bls12_381.encodeG2(tupleToG2(v.g2Element))
-    )}`
+    return `0x${Encoding.encodeHex(Bls12_381.encodeG2(tupleToG2(v.g2Element)))}`
   } else if ("mlResult" in v) {
     return `0x${Encoding.encodeHex(toUint8Array(encodeMlResult(v.mlResult)))}`
   } else {
@@ -494,7 +490,11 @@ export function g1ToTuple(p: Bls12_381.G1): Bls12_381_G1Element["g1Element"] {
   return [p.x, p.y, p.z]
 }
 
-export function tupleToG1([x, y, z]: Bls12_381_G1Element["g1Element"]): Bls12_381.G1 {
+export function tupleToG1([
+  x,
+  y,
+  z
+]: Bls12_381_G1Element["g1Element"]): Bls12_381.G1 {
   return { x, y, z }
 }
 
@@ -502,7 +502,11 @@ export function g2ToTuple(p: Bls12_381.G2): Bls12_381_G2Element["g2Element"] {
   return [p.x, p.y, p.z]
 }
 
-export function tupleToG2([x, y, z]: Bls12_381_G2Element["g2Element"]): Bls12_381.G2 {
+export function tupleToG2([
+  x,
+  y,
+  z
+]: Bls12_381_G2Element["g2Element"]): Bls12_381.G2 {
   return { x: [x[0], x[1]], y: [y[0], y[1]], z: [z[0], z[1]] }
 }
 
@@ -521,7 +525,9 @@ function encodeFp48(x: bigint): number[] {
 }
 
 function decodeFp48(bytes: number[]): Either.Either<bigint, Error> {
-  return BigEndian.decode(bytes).pipe(Either.mapLeft((e) => new Error(e.message)))
+  return BigEndian.decode(bytes).pipe(
+    Either.mapLeft((e) => new Error(e.message))
+  )
 }
 
 function encodeFp2([x, y]: readonly [bigint, bigint]): number[] {
@@ -560,16 +566,8 @@ function decodeMlResult(
   return Either.gen(function* () {
     return {
       mlResult: [
-        [
-          yield* readFp2(),
-          yield* readFp2(),
-          yield* readFp2()
-        ],
-        [
-          yield* readFp2(),
-          yield* readFp2(),
-          yield* readFp2()
-        ]
+        [yield* readFp2(), yield* readFp2(), yield* readFp2()],
+        [yield* readFp2(), yield* readFp2(), yield* readFp2()]
       ]
     }
   })
