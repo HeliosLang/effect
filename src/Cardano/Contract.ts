@@ -41,7 +41,7 @@ export const WitnessFromUplcData = Data.Enum({
     pkh: PubKeyHash.FromUplcData
   },
   Withdrawer: {
-    addr: RewardAddress.FromUplcData
+    vh: ValidatorHash.FromUplcData
   }
 })
 
@@ -51,7 +51,7 @@ const equalsWitness = (a: Witness, b: Witness) => {
   if (a._tag == "Signer") {
     return b._tag == "Signer" && b.pkh == a.pkh
   } else {
-    return b._tag == "Withdrawer" && b.addr == a.addr
+    return b._tag == "Withdrawer" && b.vh == a.vh
   }
 }
 
@@ -101,7 +101,7 @@ const $utxos = () =>
 
 export { $utxos as utxos }
 
-export const initialize = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
+export const init = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
   Effect.gen(function* () {
     const contract = yield* Contract
 
@@ -147,12 +147,14 @@ export const initialize = (witnesses: Witness[]) => (b: TxBuilder.TxBuilder) =>
     return b
   })
 
+export const initEffect = (witnesses: Witness[]) => Effect.flatMap(init(witnesses))
+
 export const addValidator =
   (vh: ValidatorHash.ValidatorHash) => (b: TxBuilder.TxBuilder) =>
     Effect.gen(function* () {
       const witness: Witness = {
         _tag: "Withdrawer",
-        addr: yield* RewardAddress.script(vh)
+        vh
       }
       return yield* addWitness(witness)(b)
     })
@@ -220,7 +222,7 @@ export const removeValidator =
     Effect.gen(function* () {
       const witness: Witness = {
         _tag: "Withdrawer",
-        addr: yield* RewardAddress.script(vh)
+        vh
       }
       return yield* removeWitness(witness)(b)
     })
@@ -316,7 +318,7 @@ export const mint = (assets: Assets.Assets) => (b: TxBuilder.TxBuilder) =>
 
     b = yield* TxBuilder.mint()(
       assets,
-      buildWitnessRedeemer(vh, address, utxo.ref, inputWitnesses)
+      buildWitnessRedeemer(address, utxo.ref, inputWitnesses)
     )(b)
 
     return b
@@ -357,7 +359,7 @@ export const spend =
 
       b = yield* TxBuilder.spend()(
         inputs,
-        buildWitnessRedeemer(vh, address, stateUtxO.ref, inputWitnesses)
+        buildWitnessRedeemer(address, stateUtxO.ref, inputWitnesses)
       )(b)
 
       return b
@@ -388,7 +390,7 @@ const buildUpdateRedeemer =
       signerPtr = tx.body.signers.indexOf(inputWitness.pkh)
     } else {
       signerPtr = tx.body.withdrawals.findIndex(
-        ([wk]) => wk == inputWitness.addr
+        ([wk]) => RewardAddress.credential(wk).hash == inputWitness.vh
       )
     }
 
@@ -429,7 +431,6 @@ const buildUpdateRedeemer =
 
 const buildWitnessRedeemer =
   (
-    contractHash: ValidatorHash.ValidatorHash,
     contractAddress: Address.Address,
     inputRef: UTxORef.UTxORef,
     inputWitnesses: readonly Witness[]
@@ -451,7 +452,7 @@ const buildWitnessRedeemer =
       signerPtr = tx.body.signers.indexOf(inputWitness.pkh)
     } else {
       signerPtr = tx.body.withdrawals.findIndex(
-        ([wk]) => wk == inputWitness.addr
+        ([wk]) => RewardAddress.credential(wk).hash == inputWitness.vh
       )
     }
 
@@ -471,12 +472,12 @@ const findFirstWitness = (tx: Tx.Tx, contractWitnesses: readonly Witness[], cont
     if (w._tag == "Signer") {
       return tx.body.signers.includes(w.pkh)
     } else {
-      return tx.body.withdrawals.some(([wk]) => wk == w.addr)
+      return tx.body.withdrawals.some(([wk]) => RewardAddress.credential(wk).hash == w.vh)
     }
   })
 
   if (witnessPtr < 0) {
-    throw new Error(`Tx not yet witnessed by one of the witnesses mentioned in contract ${contractAddress}. Expected one of [${contractWitnesses.map(w => `${w._tag}:${w._tag == "Signer" ? w.pkh : w.addr}`).join(", ")}]. Got [${tx.body.signers.map(s => `Signer:${s}`).concat(tx.body.withdrawals.map(w => `Withdrawer:${w[0]}`)).join(", ")}]`)
+    throw new Error(`Tx not yet witnessed by one of the witnesses mentioned in contract ${contractAddress}. Expected one of [${contractWitnesses.map(w => `${w._tag}:${w._tag == "Signer" ? w.pkh : w.vh}`).join(", ")}]. Got [${tx.body.signers.map(s => `Signer:${s}`).concat(tx.body.withdrawals.map(w => `Withdrawer:${w[0]}`)).join(", ")}]`)
   }
 
   return witnessPtr
