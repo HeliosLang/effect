@@ -378,7 +378,10 @@ export function pretty(assets: Assets): string {
   return s
 }
 
-export const isSorted = (assets: Assets): boolean => {
+export const isSorted = (
+  assets: Assets,
+  { shortestFirst = true }: { shortestFirst?: boolean } = {}
+): boolean => {
   const keys = Object.keys(assets)
 
   for (let i = 1; i < keys.length; i++) {
@@ -397,7 +400,7 @@ export const isSorted = (assets: Assets): boolean => {
       const tokenName0 = AssetClass.tokenName(key0)
       const tokenName1 = AssetClass.tokenName(key1)
 
-      if (Bytes.compare(tokenName0, tokenName1) >= 0) {
+      if (Bytes.compare(tokenName0, tokenName1, shortestFirst) >= 0) {
         // tokens not sorted
         return false
       }

@@ -33,6 +33,74 @@ describe("can balance Tx", () => {
     expect(Ledger.Assets.nonAdaPolicies(builder.minted)).toEqual(policies)
   })
 
+  it("sorts output assets when building", () => {
+    const changeAddress =
+      "addr_test1vpvndky904g9whpnuae0ffsd37ysjjyu7m6avse3nqsfysqx3eg5h" as Ledger.Address.Address
+    const recipientAddress =
+      "addr_test1vzzcg26lxj3twnnx889lrn60pqn0z3km2yahhsz0fvpyxdcj5qp8w" as Ledger.Address.Address
+    const policy = "01".repeat(28) as Ledger.MintingPolicy.MintingPolicy
+    const longerLexicographicallyEarlier = Ledger.AssetClass.make(policy, [
+      0x01,
+      0x01
+    ])
+    const shorterLexicographicallyLater = Ledger.AssetClass.make(policy, [0x02])
+    const unsortedOutputAssets: Ledger.Assets.Assets = {
+      [longerLexicographicallyEarlier]: 1n,
+      [shorterLexicographicallyLater]: 1n
+    }
+    const spareUTxO: Ledger.UTxO.UTxO = {
+      ref: "5c20a9ab7153e53d17a0b820b2d606b27257a1281d9365acc6d0d3cb8725ccc32" as Ledger.UTxORef.UTxORef,
+      output: {
+        address: changeAddress,
+        assets: {
+          "": 10_000_000n,
+          [longerLexicographicallyEarlier]: 1n,
+          [shorterLexicographicallyLater]: 1n
+        }
+      }
+    }
+
+    expect(Ledger.Assets.isSorted(unsortedOutputAssets)).toBeFalse()
+
+    const program = Effect.gen(function* () {
+      const tx: Ledger.Tx.Tx = yield* TxBuilder.start.pipe(
+        TxBuilder.payEffect({
+          address: recipientAddress,
+          assets: unsortedOutputAssets
+        }),
+        Effect.flatMap(TxBuilder.build())
+      )
+
+      yield* Ledger.Tx.validate({ strict: true })(tx)
+
+      expect(
+        tx.body.outputs.every((output) =>
+          Ledger.Assets.isSorted(output.assets)
+        )
+      ).toBeTrue()
+    })
+
+    Effect.runSync(
+      program.pipe(
+        Effect.provideService(Wallet.Balancing, {
+          changeAddress: Effect.succeed(changeAddress),
+          utxos: Effect.succeed([spareUTxO]),
+          signTx: () => Effect.succeed([])
+        }),
+        Effect.provideService(TxBuilder.GetDatum, (h) =>
+          Effect.fail(new TxBuilder.DatumNotFound(h))
+        ),
+        Effect.provideService(Network.IsMainnet, false),
+        Effect.provideService(Network.Params.params, testParams),
+        Effect.provideService(Network.UTxO, (ref) =>
+          ref == spareUTxO.ref
+            ? Effect.succeed(spareUTxO)
+            : Effect.fail(new Network.UTxONotFound(ref))
+        )
+      )
+    )
+  })
+
   it("ok", () => {
     const addr =
       "addr_test1vpvndky904g9whpnuae0ffsd37ysjjyu7m6avse3nqsfysqx3eg5h" as Ledger.Address.Address

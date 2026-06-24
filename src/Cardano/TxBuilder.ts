@@ -815,7 +815,7 @@ const addOutput = (b: TxBuilder, output: TxOutput.TxOutput) =>
     // assign result before returning so that return type is TxBuilder
     b = {
       ...b,
-      outputs: [...b.outputs, output]
+      outputs: [...b.outputs, output].map(TxOutput.sortAssets)
     }
 
     return b
@@ -1373,10 +1373,7 @@ const buildNonChangeOutputs = Effect.gen(function* () {
 
   // sort all assets
   for (let i = 0; i < outputs.length; i++) {
-    outputs[i] = {
-      ...outputs[i],
-      assets: Assets.sort()(outputs[i].assets)
-    }
+    outputs[i] = TxOutput.sortAssets(outputs[i])
   }
 
   return outputs
@@ -1993,7 +1990,7 @@ const balanceTx = (tx: Tx.Tx) =>
       ...tx,
       body: {
         ...tx.body,
-        outputs: [...nonChangeOutputs, changeOutput]
+        outputs: [...nonChangeOutputs, changeOutput].map(TxOutput.sortAssets)
       }
     }
 

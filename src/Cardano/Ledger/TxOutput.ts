@@ -86,6 +86,11 @@ export function make({
   }
 }
 
+export const sortAssets = (output: TxOutput): TxOutput => ({
+  ...output,
+  assets: Assets.sort({ shortestFirst: true })(output.assets)
+})
+
 export const decode = (bytes: Bytes.BytesLike): Cbor.DecodeResult<TxOutput> =>
   Either.gen(function* () {
     const stream = Bytes.makeStream(bytes)
