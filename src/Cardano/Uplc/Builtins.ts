@@ -1490,7 +1490,7 @@ export const verifySchnorrSecp256k1SignatureV2: Builtin = {
 }
 
 export const verifySchnorrSecp256k1SignatureV3: Builtin = {
-  ...verifyEcdsaSecp256k1SignatureV2,
+  ...verifySchnorrSecp256k1SignatureV2,
   cpuModel: Cost.Linear(190, 191)(Cost.Third),
   memModel: Cost.Constant(192)
 }

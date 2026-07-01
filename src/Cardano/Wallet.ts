@@ -1,6 +1,8 @@
 import { Context, Effect } from "effect"
 import * as Bip32 from "../Crypto/Bip32.js"
 import * as Bip39 from "../Crypto/Bip39.js"
+import * as Bytes from "../Codecs/Bytes.js"
+import * as Cbor from "../Codecs/Cbor.js"
 import * as Cose from "./Cose/index.js"
 import * as Address from "./Ledger/Address.js"
 import * as PubKey from "./Ledger/PubKey.js"
@@ -12,11 +14,37 @@ import * as Network from "./Network/index.js"
 export class Balancing extends Context.Tag("Cardano.Wallet.Balancing")<
   Balancing,
   {
-    changeAddress: Effect.Effect<Address.Address> // TODO: allow a specific kind of error?
+    changeAddress: Effect.Effect<Address.Address, Error> // TODO: a specific kind of error?
     utxos: Effect.Effect<UTxO.UTxO[], Error> // TODO: a specific kind of error?
     signTx(tx: Tx.Tx): Effect.Effect<Signature.Signature[], Error> // TODO: a specific kind of error?
   }
 >() {}
+
+export interface Cip30Handle {
+  readonly name: string
+  readonly icon: string
+  enable(): Promise<Cip30FullHandle>
+  isEnabled(): boolean
+}
+
+export interface Cip30FullHandle {
+  getNetworkId(): Promise<number>
+  getUsedAddresses(): Promise<string[]>
+  getUnusedAddresses(): Promise<string[]>
+  getChangeAddress(): Promise<string>
+  getUtxos(): Promise<string[] | null>
+  getCollateral(): Promise<string[]>
+  getRewardAddresses(): Promise<string[]>
+  signData(
+    addr: string,
+    sigStructure: string
+  ): Promise<{ signature: string; key: string }>
+  signTx(txHex: string, partialSign: boolean): Promise<string>
+  submitTx(txHex: string): Promise<string>
+  experimental: {
+    getCollateral?: () => Promise<string[]>
+  }
+}
 
 /**
  * @param phrase
@@ -102,6 +130,65 @@ export const Phrase = (
     }
   })
 
-export const Browser = (_handle: unknown) => {
-  throw new Error("not yet implemented")
-}
+export const Browser = (handle: Cip30FullHandle) => ({
+  changeAddress: Effect.tryPromise({
+    try: () => handle.getChangeAddress(),
+    catch: (e) => new Error(String(e))
+  }).pipe(Effect.flatMap(decodeChangeAddress)),
+  utxos: Effect.tryPromise({
+    try: () => handle.getUtxos(),
+    catch: (e) => new Error(String(e))
+  }).pipe(Effect.flatMap(decodeUtxos)),
+  signTx: (tx: Tx.Tx) =>
+    Effect.tryPromise({
+      try: () => handle.signTx(Bytes.toHex(Tx.encode({ full: true })(tx)), true),
+      catch: (e) => new Error(String(e))
+    }).pipe(Effect.flatMap(decodeWitnessSignatures))
+})
+
+const decodeChangeAddress = (addressHex: string) =>
+  Effect.try({
+    try: () => {
+      const address = Address.decode(Bytes.toArray(addressHex))
+
+      if (address._tag == "Left") {
+        throw address.left
+      }
+
+      return address.right
+    },
+    catch: (e) => new Error(String(e))
+  })
+
+const decodeUtxos = (utxos: string[] | null) =>
+  Effect.try({
+    try: () =>
+      (utxos ?? []).map((utxoHex) => {
+        const decoded = UTxO.decode(utxoHex)
+
+        if (decoded._tag == "Left") {
+          throw decoded.left
+        } else if (typeof decoded.right == "string") {
+          throw new Error("expected full CIP-30 UTxO")
+        } else {
+          return decoded.right
+        }
+      }),
+    catch: (e) => new Error(String(e))
+  })
+
+const decodeWitnessSignatures = (witnessSetHex: string) =>
+  Effect.try({
+    try: () => {
+      const decoded = Cbor.decodeObjectIKey({
+        0: Cbor.decodeSet(Signature.decode)
+      })(witnessSetHex)
+
+      if (decoded._tag == "Left") {
+        throw decoded.left
+      }
+
+      return decoded.right[0] ?? []
+    },
+    catch: (e) => new Error(String(e))
+  })
