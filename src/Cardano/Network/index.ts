@@ -1,6 +1,7 @@
 export * as AssetMetadata from "./AssetMetadata.js"
 export * from "./errors.js"
 export * from "./IsMainnet.js"
+export * from "./LiveBlockHeight.js"
 export * as Params from "./Params.js"
 export * from "./Submit.js"
 export * from "./Tx.js"
