@@ -1953,10 +1953,6 @@ const balanceTx = (tx: Tx.Tx) =>
       throw new Error("net not positive")
     }
 
-    if (Address.isValidator(changeAddress)) {
-      throw new Error("can't send change to validator")
-    }
-
     changeOutput = {
       ...changeOutput,
       assets: Assets.sort()(net)
