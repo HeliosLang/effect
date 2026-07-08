@@ -344,17 +344,21 @@ export function allPositive(assets: Assets): boolean {
 export class SomeNonPositive extends TaggedError(
   "Cardano.Ledger.Assets.SomeNonPositive"
 )<{ message: string }> {
-  constructor() {
-    super({ message: `Some assets have quantities <= 0` })
+  constructor(assetClass: AssetClass.AssetClass, qty: bigint) {
+    super({ message: `Some assets have quantities <= 0 (assetClass ${assetClass} qty is ${qty})` })
   }
 }
 
 export function assertAllPositive(assets: Assets) {
-  if (!allPositive(assets)) {
-    return Effect.fail(new SomeNonPositive())
-  } else {
-    return Effect.void
+  for (const assetClass in assets) {
+    const qty = assets[assetClass]
+
+    if (qty <= 0n) {
+      return Effect.fail(new SomeNonPositive(assetClass as AssetClass.AssetClass, qty))
+    }
   }
+
+  return Effect.void
 }
 
 /**
